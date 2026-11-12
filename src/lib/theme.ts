@@ -31,7 +31,7 @@ function resolve(p: ThemePref): Theme {
   return p;
 }
 
-const BG: Record<Theme, string> = { light: '#f5f6fa', dark: '#0b0e17' };
+const BG: Record<Theme, string> = { light: '#fcfcfc', dark: '#121212' };
 
 function apply(): void {
   if (typeof document === 'undefined') return;
