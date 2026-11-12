@@ -169,7 +169,7 @@ function Shell() {
       {/* "Continue workout" bar floats above the tab bar */}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-3 md:bottom-5 md:left-60 md:px-8">
         {active && !showWorkout && (
-          <ResumeBar name={active.name} onClick={() => setTab('today')} />
+          <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />
         )}
       </div>
 

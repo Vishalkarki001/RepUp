@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil, Play, Plus } from 'lucide-react';
+import { CircleCheck, ChevronRight, Pencil, Play, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { actions, exerciseMap, planForDay, useAppState } from '@/lib/store';
-import { WEEKDAYS, WEEKDAYS_LONG, type Muscle } from '@/lib/types';
-import { cn, formatDate, formatVolume, formatW, startOfWeek, useNow, workoutVolume } from '@/lib/utils';
+import { WEEKDAYS, WEEKDAYS_LONG, type Exercise, type Muscle, type Workout } from '@/lib/types';
+import { cn, formatDate, formatKg, formatVolume, formatW, startOfWeek, useNow, workoutVolume } from '@/lib/utils';
 import { EmptyState, NumBadge, SectionTitle, Stat, StatGrid } from '../common';
 import { ScreenHeader } from '../ScreenHeader';
 import { DayPlanEditor } from './DayPlanEditor';
+import { WorkoutDetail } from './History';
 
 const DAY = 86_400_000;
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon … Sun
@@ -25,6 +26,7 @@ export function TodayScreen() {
   const [selected, setSelected] = useState(today);
   useEffect(() => setSelected(today), [today]); // new day → jump to it
   const [editing, setEditing] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const exMap = useMemo(() => exerciseMap(s), [s]);
 
   const weekStart = startOfWeek(now.getTime());
@@ -38,13 +40,18 @@ export function TodayScreen() {
     const start = date.getTime();
     // Next local midnight (not +24 h, which is wrong on daylight-saving days).
     const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+    const done = s.workouts.filter((w) => w.startedAt >= start && w.startedAt < end).sort((a, b) => a.startedAt - b.startedAt);
     return {
       d,
       date: date.getDate(),
-      trained: s.workouts.some((w) => w.startedAt >= start && w.startedAt < end),
+      done,
+      trained: done.length > 0,
       planned: !!planForDay(s, d),
     };
   });
+  // Workouts already finished on the selected day of this week.
+  const doneOnSelected = week.find((x) => x.d === selected)?.done ?? [];
+  const openWorkout = openId ? s.workouts.find((w) => w.id === openId) : undefined;
 
   const plan = planForDay(s, selected);
   const isToday = selected === today;
@@ -105,6 +112,16 @@ export function TodayScreen() {
         </p>
       </div>
 
+      {doneOnSelected.map((w) => (
+        <DoneCard key={w.id} workout={w} label={dayLabel} exMap={exMap} onOpen={() => setOpenId(w.id)} />
+      ))}
+
+      {!plan && doneOnSelected.length > 0 && (
+        <Button variant="ghost" size="sm" className="-mt-2 self-center text-muted-foreground" onClick={() => setEditing(true)}>
+          <Plus /> Plan {WEEKDAYS_LONG[selected]}&apos;s workout for next week
+        </Button>
+      )}
+
       {plan ? (
         <Card data-plan-card className="gap-0 py-0">
           <CardHeader className="flex flex-row items-start gap-3 border-b px-4 py-4">
@@ -155,7 +172,7 @@ export function TodayScreen() {
             </p>
           </CardFooter>
         </Card>
-      ) : (
+      ) : doneOnSelected.length ? null : (
         <EmptyState
           emoji="😴"
           title={isToday ? 'Rest day today' : `${WEEKDAYS_LONG[selected]} is a rest day`}
@@ -183,7 +200,77 @@ export function TodayScreen() {
       </section>
 
       {editing && <DayPlanEditor day={selected} onClose={() => setEditing(false)} />}
+      {openWorkout && (
+        <WorkoutDetail
+          key={openWorkout.id}
+          workout={openWorkout}
+          exMap={exMap}
+          canRepeat={!s.active}
+          onClose={() => setOpenId(null)}
+          onRepeat={() => {
+            actions.repeatWorkout(openWorkout.id);
+            setOpenId(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** A finished workout on the selected day: name, totals and each exercise's best set. Tap to open it. */
+function DoneCard({
+  workout,
+  label,
+  exMap,
+  onOpen,
+}: {
+  workout: Workout;
+  label: string;
+  exMap: Map<string, Exercise>;
+  onOpen: () => void;
+}) {
+  const sets = workout.exercises.reduce((a, e) => a + e.sets.filter((x) => !x.warmup).length, 0);
+  return (
+    <Card data-done-card className="gap-0 overflow-hidden border-success/40 py-0">
+      <button type="button" onClick={onOpen} className="text-left transition-colors hover:bg-muted/40">
+        <CardHeader className="flex flex-row items-start gap-3 border-b px-4 py-4">
+          <CircleCheck className="mt-0.5 size-6 shrink-0 text-success" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-success">{label} · done ✓</p>
+            <h2 className="mt-0.5 truncate text-xl font-semibold tracking-tight">{workout.name || 'Workout'}</h2>
+            <p className="mt-1 text-xs text-muted-foreground tabular">
+              {workout.exercises.length} {workout.exercises.length === 1 ? 'exercise' : 'exercises'} · {sets}{' '}
+              {sets === 1 ? 'set' : 'sets'} · {formatVolume(workoutVolume(workout))}
+            </p>
+          </div>
+          <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground" aria-hidden />
+        </CardHeader>
+        <CardContent className="px-0">
+          <ul className="divide-y">
+            {workout.exercises.map((e) => {
+              const working = e.sets.filter((x) => !x.warmup);
+              const best = working.reduce<(typeof working)[number] | null>(
+                (a, b) => (!a || (b.weight ?? 0) > (a.weight ?? 0) ? b : a),
+                null,
+              );
+              return (
+                <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className="text-muted-foreground tabular">{working.length} ×</span>{' '}
+                    <span className="font-medium">{exMap.get(e.exerciseId)?.name ?? 'Deleted exercise'}</span>
+                  </span>
+                  {best && (
+                    <span className="shrink-0 font-semibold tabular">
+                      {formatKg(best.weight ?? 0)}×{best.reps}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </button>
+    </Card>
   );
 }
 

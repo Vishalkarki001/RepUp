@@ -222,7 +222,7 @@ function MonthCalendar({ workouts, onOpen }: { workouts: Workout[]; onOpen: (id:
 
 /* ---------------------------------------------------------------- */
 
-function WorkoutDetail({
+export function WorkoutDetail({
   workout,
   exMap,
   canRepeat,

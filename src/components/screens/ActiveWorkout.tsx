@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, Ellipsis, Minus, Plus } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Ellipsis, Minus, Pencil, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,12 +74,18 @@ export function ActiveWorkout({ onFinished }: Props) {
     <div className="flex flex-col gap-4">
       <header className="sticky top-0 z-10 -mx-4 -mt-[env(safe-area-inset-top,0px)] flex items-center gap-3 border-b bg-background/90 px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 backdrop-blur-lg md:-mx-8 md:px-8">
         <div className="min-w-0 flex-1">
-          <Input
-            className="-mx-1 h-auto truncate rounded-md border-transparent bg-transparent px-1 py-0 text-xl font-semibold tracking-tight shadow-none focus-visible:bg-muted md:text-xl dark:bg-transparent"
-            value={w.name}
-            onChange={(e) => actions.updateActive((x) => ({ ...x, name: e.target.value }))}
-            aria-label="Workout name"
-          />
+          {/* Tap to rename. Blank workouts start empty so the box asks for a name (e.g. "Chest day"). */}
+          <label className="group -mx-1 flex items-center gap-1.5 rounded-md px-1 focus-within:bg-muted hover:bg-muted/60">
+            <Input
+              className="h-auto min-w-0 flex-1 truncate border-transparent bg-transparent px-0 py-0.5 text-xl font-semibold tracking-tight shadow-none placeholder:font-medium placeholder:text-muted-foreground/70 focus-visible:border-transparent focus-visible:ring-0 md:text-xl dark:bg-transparent"
+              value={w.name}
+              placeholder="Name this workout (e.g. Chest day)"
+              autoFocus={!w.name}
+              onChange={(e) => actions.updateActive((x) => ({ ...x, name: e.target.value }))}
+              aria-label="Workout name"
+            />
+            <Pencil className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </label>
           <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground tabular">
             {doneSets}/{totalSets} sets · {formatVolume(workoutVolume(w))}
           </p>

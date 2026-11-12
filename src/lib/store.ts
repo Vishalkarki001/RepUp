@@ -365,7 +365,8 @@ function workoutFrom(name: string, items: PlanItem[], day?: number): Workout {
 
 export const actions = {
   startEmptyWorkout() {
-    set((s) => (s.active ? s : { ...s, active: workoutFrom(defaultWorkoutName(), []) }));
+    // Starts unnamed so the name box asks for one; finishing without a name uses the time of day.
+    set((s) => (s.active ? s : { ...s, active: workoutFrom('', []) }));
   },
 
   startPlan(day: number) {
@@ -426,7 +427,12 @@ export const actions = {
       .filter((e) => e.sets.length > 0);
     if (!exercises.length) return null;
 
-    const workout: Workout = { ...s.active, exercises, finishedAt: Date.now() };
+    const workout: Workout = {
+      ...s.active,
+      name: s.active.name.trim() || defaultWorkoutName(),
+      exercises,
+      finishedAt: Date.now(),
+    };
     const planUpdate = planChangesFrom(s, s.active);
 
     // Personal records vs. all earlier history (working sets only).
