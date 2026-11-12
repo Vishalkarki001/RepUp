@@ -17,6 +17,17 @@ const PUBLIC_PATHS = ['/login', '/auth/'];
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured) return NextResponse.next();
 
+  // Safety net: if Supabase falls back to the Site URL (e.g. the redirect URL isn't
+  // allow-listed), a login/confirm/reset `code` can land on "/" or "/login".
+  // Hand it to the callback route so it isn't lost.
+  const landed = request.nextUrl;
+  if ((landed.searchParams.has('code') || landed.searchParams.has('token_hash')) && !landed.pathname.startsWith('/auth/')) {
+    const url = landed.clone();
+    url.pathname = '/auth/callback';
+    if (!url.searchParams.has('next')) url.searchParams.set('next', landed.pathname === '/login' ? '/' : landed.pathname);
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
