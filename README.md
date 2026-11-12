@@ -30,7 +30,6 @@ deploy it (e.g. Vercel). Over plain `http://<ip>:3000`, the app works but doesn'
   - Every working set hit the goal → *add weight* (2.5 kg; 2 kg for dumbbells/kettlebells).
   - Targets appear as placeholders; tap ✓ to log the target as-is, or type what you actually did. **Fill** writes the targets into all sets.
 - **Warm-up sets** – tap the set number to mark it **W**. Warm-ups are ignored for targets, PRs and stats.
-- **Rest timer** – starts automatically after each set (beep + vibration), ±15 s, skip. Default in Settings.
 - **PRs** – a summary after each workout lists new personal records (estimated 1RM, Epley).
 - **Progress** – per-exercise charts (heaviest, est. max, volume; tap for each session), workouts per week,
   sets per muscle group this week (10-set guide line), body-weight log.
@@ -42,7 +41,7 @@ deploy it (e.g. Vercel). Over plain `http://<ip>:3000`, the app works but doesn'
 - **Edit past workouts** – History → open a workout → Edit (fix weights, reps, add/delete sets).
 - **History calendar** – month view; training days highlighted, tap one to open it.
 - **Plate calculator** – "Plates" button on barbell exercises shows what to load on each side.
-- **Screen stays on** during a workout (where the browser supports it).
+- **Screen stays on** during a workout (where the browser supports it). No timers — the app just records what you lift.
 - **Toasts & undo** – messages appear as toasts (Sonner); deleting a workout, discarding one or making a day a rest day can be undone. Confirmations use an in-app dialog, never browser popups.
 - **kg or lb** – Settings → Weight unit (a label; numbers already saved are not converted).
 - **Backup** – Save / Restore JSON in Settings.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, Ellipsis, Minus, Plus, Timer } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Ellipsis, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { compareSet, suggestTarget, type SetTarget } from '@/lib/progression';
 import { actions, exerciseMap, lastSessionFor, useAppState } from '@/lib/store';
 import type { Exercise, SetEntry, Workout, WorkoutExercise, WorkoutSummary } from '@/lib/types';
-import { cn, formatDate, formatDuration, formatKg, formatVolume, newSet, unitLabel, unlockAudio, useNow, useWakeLock, workoutVolume } from '@/lib/utils';
+import { cn, formatDate, formatKg, formatVolume, newSet, unitLabel, useWakeLock, workoutVolume } from '@/lib/utils';
 import { EmptyState } from '../common';
 import { confirmDialog } from '../Confirm';
 import { ExercisePicker } from '../ExercisePicker';
@@ -26,7 +26,6 @@ interface Props {
 export function ActiveWorkout({ onFinished }: Props) {
   const s = useAppState();
   const w = s.active!;
-  const now = useNow(1000);
   useWakeLock(true); // keep the screen on at the gym
   const exMap = useMemo(() => exerciseMap(s), [s]);
   const [picking, setPicking] = useState(false);
@@ -82,8 +81,7 @@ export function ActiveWorkout({ onFinished }: Props) {
             aria-label="Workout name"
           />
           <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground tabular">
-            <Timer className="size-3.5 shrink-0" aria-hidden />
-            {formatDuration(now - w.startedAt)} · {doneSets}/{totalSets} sets · {formatVolume(workoutVolume(w))}
+            {doneSets}/{totalSets} sets · {formatVolume(workoutVolume(w))}
           </p>
         </div>
         <Button size="lg" className="h-10 shrink-0 px-4" onClick={finish}>
@@ -249,9 +247,7 @@ function ExerciseCard({
       setTimeout(() => setNeedInput(null), 1200);
       return;
     }
-    unlockAudio();
     updateSet(we.id, set.id, { weight, reps, done: true });
-    actions.startRest();
   };
 
   const fillTargets = () => {

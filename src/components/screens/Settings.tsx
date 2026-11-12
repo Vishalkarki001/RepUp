@@ -1,9 +1,8 @@
-import { useId, useRef, useState } from 'react';
-import { Download, Loader2, LogOut, RefreshCw, Trash2, Upload, UserX } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Download, Loader2, LogOut, Pencil, RefreshCw, Trash2, Upload, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { deleteAccount, signOut, useAccount, wouldLoseChanges } from '@/lib/account';
@@ -13,21 +12,19 @@ import { setThemePref, useTheme, type ThemePref } from '@/lib/theme';
 import { todayISO } from '@/lib/utils';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
+import { ProfileModal } from '../ProfileModal';
 
-const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 const THEMES: { id: ThemePref; label: string }[] = [
   { id: 'light', label: '☀️ Light' },
   { id: 'dark', label: '🌙 Dark' },
   { id: 'system', label: 'Auto' },
 ];
 
-const restLabel = (s: number) => (s === 0 ? 'Off' : s < 60 ? `${s} sec` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} min`);
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, workouts } = useAppState();
   const { pref } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
-  const restId = useId();
 
   const exportData = () => {
     const blob = new Blob([actions.exportJSON()], { type: 'application/json' });
@@ -105,22 +102,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <FieldDescription className="text-xs">Pick once. Switching later does not convert numbers you already saved.</FieldDescription>
         </FieldSet>
 
-        <Field className="gap-2">
-          <FieldLabel htmlFor={restId}>Rest timer after each set</FieldLabel>
-          <Select value={String(settings.restSeconds)} onValueChange={(v) => actions.updateSettings({ restSeconds: Number(v) })}>
-            <SelectTrigger id={restId} className="w-full data-[size=default]:h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {REST_OPTIONS.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  {restLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
         <FieldSet className="gap-2">
           <FieldLegend variant="label" className="mb-0">
             Backup{' '}
@@ -193,6 +174,7 @@ function AccountSection() {
   const account = useAccount();
   const sync = useSyncStatus();
   const [busy, setBusy] = useState<null | 'sync' | 'logout' | 'delete'>(null);
+  const [editing, setEditing] = useState(false);
   if (!account) return null;
 
   const status =
@@ -242,7 +224,7 @@ function AccountSection() {
     <section className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
       <div className="flex items-center gap-3">
         {account.avatarUrl ? (
-          <img src={account.avatarUrl} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" />
+          <img src={account.avatarUrl} alt="" className="size-10 rounded-full border object-cover" referrerPolicy="no-referrer" />
         ) : (
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent font-semibold text-accent-foreground uppercase">
             {(account.name || account.email).slice(0, 1)}
@@ -256,6 +238,9 @@ function AccountSection() {
             {account.role === 'admin' ? ' · Admin' : ''}
           </p>
         </div>
+        <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => setEditing(true)}>
+          <Pencil /> Edit
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">{status}</p>
       <div className="grid grid-cols-2 gap-2">
@@ -278,6 +263,7 @@ function AccountSection() {
       <Button variant="ghost" size="sm" className="self-start text-destructive hover:text-destructive" disabled={busy !== null} onClick={remove}>
         {busy === 'delete' ? <Loader2 className="animate-spin" /> : <UserX />} Delete my account
       </Button>
+      {editing && <ProfileModal onClose={() => setEditing(false)} />}
     </section>
   );
 }

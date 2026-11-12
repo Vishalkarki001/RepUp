@@ -22,9 +22,8 @@ import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { startSync, useSyncStatus } from '@/lib/sync';
 import type { WorkoutSummary } from '@/lib/types';
-import { cn, formatDuration, useNow } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
-import { RestTimer } from './RestTimer';
 import { AdminScreen } from './screens/Admin';
 import { ActiveWorkout } from './screens/ActiveWorkout';
 import { HistoryScreen } from './screens/History';
@@ -165,12 +164,11 @@ function Shell() {
         )}
       </main>
 
-      {/* Rest timer + "continue workout" bar float above the tab bar */}
+      {/* "Continue workout" bar floats above the tab bar */}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-3 md:bottom-5 md:left-60 md:px-8">
         {active && !showWorkout && (
-          <ResumeBar startedAt={active.startedAt} name={active.name} onClick={() => setTab('today')} />
+          <ResumeBar name={active.name} onClick={() => setTab('today')} />
         )}
-        <RestTimer />
       </div>
 
       {/* Mobile tab bar */}
@@ -202,8 +200,7 @@ function Shell() {
   );
 }
 
-function ResumeBar({ startedAt, name, onClick }: { startedAt: number; name: string; onClick: () => void }) {
-  const now = useNow(1000);
+function ResumeBar({ name, onClick }: { name: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -212,7 +209,7 @@ function ResumeBar({ startedAt, name, onClick }: { startedAt: number; name: stri
       <span className="size-2.5 animate-soft-pulse rounded-full bg-success" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{name}</span>
-        <span className="block text-xs text-muted-foreground">Workout in progress · {formatDuration(now - startedAt)}</span>
+        <span className="block text-xs text-muted-foreground">Workout in progress</span>
       </span>
       <Button size="sm" asChild>
         <span>Continue</span>

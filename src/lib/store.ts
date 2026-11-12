@@ -102,7 +102,7 @@ function normalize(raw: unknown): AppState | null {
     plans,
     workouts: r.workouts.filter(validWorkout).map(fixWorkout),
     active: validWorkout(r.active) ? fixWorkout(r.active) : null,
-    // A rest that ran out while the app was closed shouldn't beep on the next launch.
+    // Legacy rest-timer field (the timer was removed): never restore an expired value.
     restEndsAt: r.restEndsAt && r.restEndsAt > Date.now() ? r.restEndsAt : null,
     restTotal: r.restTotal ?? 0,
     bodyWeights: Array.isArray(r.bodyWeights)

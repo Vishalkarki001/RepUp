@@ -17,6 +17,7 @@ interface AdminUser {
   id: string;
   email: string | null;
   full_name: string | null;
+  avatar_url: string | null;
   provider: string;
   role: string;
   created_at: string;
@@ -126,9 +127,13 @@ export function AdminScreen() {
                   {shown.map((u) => (
                     <Item key={u.id} className="rounded-none px-4 py-3">
                       <ItemMedia>
-                        <span className="grid size-9 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
-                          {(u.full_name || u.email || '?').slice(0, 1)}
-                        </span>
+                        {u.avatar_url ? (
+                          <img src={u.avatar_url} alt="" className="size-9 rounded-full border object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="grid size-9 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
+                            {(u.full_name || u.email || '?').slice(0, 1)}
+                          </span>
+                        )}
                       </ItemMedia>
                       <ItemContent className="min-w-0 gap-1">
                         <ItemTitle className="w-full flex-wrap">

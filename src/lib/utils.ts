@@ -103,39 +103,6 @@ export function useNow(intervalMs = 1000): number {
   return now;
 }
 
-let audioCtx: AudioContext | null = null;
-
-/** Must be called from a user gesture so the beep can play later. */
-export function unlockAudio(): void {
-  try {
-    if (!audioCtx) audioCtx = new AudioContext();
-    if (audioCtx.state === 'suspended') void audioCtx.resume();
-  } catch {
-    /* audio unsupported */
-  }
-}
-
-export function beep(): void {
-  try {
-    navigator.vibrate?.([200, 100, 200]);
-    if (!audioCtx) return;
-    const ctx = audioCtx;
-    [0, 0.25, 0.5].forEach((offset) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
-      gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.18);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + offset);
-      osc.stop(ctx.currentTime + offset + 0.2);
-    });
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Keeps the phone screen on while `on` is true (re-acquired when the app comes back to the front). */
 export function useWakeLock(on: boolean): void {
   useEffect(() => {
