@@ -14,6 +14,7 @@ import { MUSCLES, type Muscle } from '@/lib/types';
 import { formatDate, formatKg, formatVolume, formatW, startOfWeek, todayISO, unitLabel, workoutVolume } from '@/lib/utils';
 import { BarChart, LineChart } from '../Charts';
 import { EmptyState, Stat, StatGrid } from '../common';
+import { DatePicker } from '../DatePicker';
 import { ScreenHeader } from '../ScreenHeader';
 import { ExerciseStats } from './ExerciseHistory';
 
@@ -211,14 +212,7 @@ function BodyWeightCard() {
             onKeyDown={(e) => e.key === 'Enter' && add()}
             aria-label="Body weight"
           />
-          <Input
-            className="h-9 min-w-0"
-            type="date"
-            value={date}
-            max={todayISO()}
-            onChange={(e) => setDate(e.target.value)}
-            aria-label="Date"
-          />
+          <DatePicker className="h-9 min-w-0" value={date} onChange={setDate} label="Date of weigh-in" />
           <Button className="h-9" onClick={add}>
             Save
           </Button>

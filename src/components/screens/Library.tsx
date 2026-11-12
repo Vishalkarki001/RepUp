@@ -1,22 +1,18 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronRight, Plus, Search } from 'lucide-react';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { actions, useAppState } from '@/lib/store';
-import { EQUIPMENT, MUSCLES, type Equipment, type Muscle } from '@/lib/types';
+import { useAppState } from '@/lib/store';
+import { MUSCLES, type Muscle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { SectionTitle } from '../common';
-import { Modal } from '../Modal';
 import { ScreenHeader } from '../ScreenHeader';
+import { ExerciseEditor } from '../ExerciseEditor';
 import { ExerciseHistoryModal } from './ExerciseHistory';
 
 export function LibraryScreen() {
@@ -116,93 +112,8 @@ export function LibraryScreen() {
 
       {openId && <ExerciseHistoryModal exerciseId={openId} onClose={() => setOpenId(null)} />}
       {creating && (
-        <NewExerciseModal
-          initialName={query.trim()}
-          initialMuscle={muscle === 'All' ? 'Chest' : muscle}
-          onClose={() => setCreating(false)}
-        />
+        <ExerciseEditor initialName={query.trim()} initialMuscle={muscle === 'All' ? 'Chest' : muscle} onClose={() => setCreating(false)} />
       )}
     </div>
-  );
-}
-
-function NewExerciseModal({
-  initialName,
-  initialMuscle,
-  onClose,
-}: {
-  initialName: string;
-  initialMuscle: Muscle;
-  onClose: () => void;
-}) {
-  const { exercises } = useAppState();
-  const [name, setName] = useState(initialName);
-  const [muscle, setMuscle] = useState<Muscle>(initialMuscle);
-  const [equipment, setEquipment] = useState<Equipment>('Machine');
-  const duplicate = exercises.some((e) => e.name.toLowerCase() === name.trim().toLowerCase());
-  const id = useId();
-
-  return (
-    <Modal
-      title="New exercise"
-      onClose={onClose}
-      footer={
-        <Button
-          className="h-10 w-full"
-          disabled={!name.trim() || duplicate}
-          onClick={() => {
-            actions.addExercise({ name: name.trim(), muscle, equipment });
-            toast.success(`“${name.trim()}” created`);
-            onClose();
-          }}
-        >
-          Create exercise
-        </Button>
-      }
-    >
-      <Field data-invalid={duplicate || undefined}>
-        <FieldLabel htmlFor={`${id}-name`}>Name</FieldLabel>
-        <Input
-          id={`${id}-name`}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Smith Machine Incline Press"
-          aria-invalid={duplicate || undefined}
-          autoFocus
-        />
-        {duplicate && <FieldError className="text-xs">An exercise with this name already exists.</FieldError>}
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${id}-muscle`}>Muscle group</FieldLabel>
-        <Select value={muscle} onValueChange={(v) => setMuscle(v as Muscle)}>
-          <SelectTrigger id={`${id}-muscle`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MUSCLES.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`${id}-equipment`}>Equipment</FieldLabel>
-        <Select value={equipment} onValueChange={(v) => setEquipment(v as Equipment)}>
-          <SelectTrigger id={`${id}-equipment`} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {EQUIPMENT.map((m) => (
-              <SelectItem key={m} value={m}>
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <FieldDescription className="text-xs">Decides how much weight to add when you get stronger.</FieldDescription>
-      </Field>
-    </Modal>
   );
 }

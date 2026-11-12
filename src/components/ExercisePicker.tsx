@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Plus, Search } from 'lucide-react';
+import { Check, Pencil, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { actions, useAppState } from '@/lib/store';
 import { MUSCLES, type Muscle } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { ExerciseEditor } from './ExerciseEditor';
 import { Modal } from './Modal';
 
 interface Props {
@@ -23,6 +24,8 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
   const [muscle, setMuscle] = useState<Muscle | 'All'>('All');
   const [newMuscle, setNewMuscle] = useState<Muscle>('Chest');
   const [selected, setSelected] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingEx = editingId ? exercises.find((x) => x.id === editingId) : undefined;
 
   const q = query.trim();
   const list = useMemo(() => {
@@ -115,13 +118,13 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
         {list.map((e) => {
           const on = selected.includes(e.id);
           return (
-            <div key={e.id} role="listitem">
+            <div key={e.id} role="listitem" className="flex items-stretch gap-1.5">
               <Item
                 asChild
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'min-h-12 cursor-pointer flex-nowrap bg-card py-2 text-left hover:bg-muted',
+                  'min-h-12 min-w-0 flex-1 cursor-pointer flex-nowrap bg-card py-2 text-left hover:bg-muted',
                   on && 'border-primary bg-accent hover:bg-accent',
                 )}
               >
@@ -146,10 +149,29 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
                   </ItemActions>
                 </button>
               </Item>
+              {e.custom && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-auto w-11 shrink-0 bg-card"
+                  aria-label={`Rename or delete ${e.name}`}
+                  title="Rename or delete"
+                  onClick={() => setEditingId(e.id)}
+                >
+                  <Pencil />
+                </Button>
+              )}
             </div>
           );
         })}
       </ItemGroup>
+      {editingEx && (
+        <ExerciseEditor
+          exercise={editingEx}
+          onClose={() => setEditingId(null)}
+          onDeleted={() => setSelected((sel) => sel.filter((x) => x !== editingEx.id))}
+        />
+      )}
     </Modal>
   );
 }

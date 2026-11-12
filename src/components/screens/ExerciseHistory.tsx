@@ -1,8 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowDown, ArrowUp, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -13,7 +12,7 @@ import { actions, exerciseHistory, useAppState } from '@/lib/store';
 import { cn, formatDate, formatKg, formatVolume, formatW } from '@/lib/utils';
 import { LineChart } from '../Charts';
 import { SectionTitle, Stat, StatGrid } from '../common';
-import { confirmDialog } from '../Confirm';
+import { ExerciseEditor } from '../ExerciseEditor';
 import { Modal } from '../Modal';
 
 type Metric = 'weight' | '1rm' | 'volume' | 'reps';
@@ -136,6 +135,7 @@ export function ExerciseHistoryModal({ exerciseId, onClose }: { exerciseId: stri
   const s = useAppState();
   const ex = s.exercises.find((e) => e.id === exerciseId);
   const [note, setNote] = useState(ex?.note ?? '');
+  const [editing, setEditing] = useState(false);
   const noteId = useId();
   if (!ex) return null;
 
@@ -165,25 +165,11 @@ export function ExerciseHistoryModal({ exerciseId, onClose }: { exerciseId: stri
       </Field>
       <ExerciseStats exerciseId={exerciseId} />
       {ex.custom && (
-        <Button
-          variant="ghost"
-          className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={async () => {
-            const ok = await confirmDialog({
-              title: `Delete “${ex.name}”?`,
-              message: 'It is removed from your weekly plans. Past workouts keep their numbers but show it as “Deleted exercise”.',
-              confirmLabel: 'Delete',
-              danger: true,
-            });
-            if (!ok) return;
-            actions.deleteExercise(ex.id);
-            onClose();
-            toast(`“${ex.name}” deleted`);
-          }}
-        >
-          <Trash2 /> Delete exercise
+        <Button variant="outline" className="h-10 w-full" onClick={() => setEditing(true)}>
+          <Pencil /> Rename or delete this exercise
         </Button>
       )}
+      {editing && <ExerciseEditor exercise={ex} onClose={() => setEditing(false)} onDeleted={onClose} />}
     </Modal>
   );
 }
