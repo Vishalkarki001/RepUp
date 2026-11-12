@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChartLine, Dumbbell, History, ListChecks, type LucideIcon } from 'lucide-react';
+import { ChartLine, Dumbbell, History, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -15,12 +16,16 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '@/components/ui/sidebar';
-import { Toaster } from '@/components/ui/sonner';
-import { useAppState } from '@/lib/store';
+import { refreshProfile, setAccountFromUser, useAccount } from '@/lib/account';
+import { switchUser, useAppState } from '@/lib/store';
+import { supabase } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/env';
+import { startSync, useSyncStatus } from '@/lib/sync';
 import type { WorkoutSummary } from '@/lib/types';
 import { cn, formatDuration, useNow } from '@/lib/utils';
-import { ConfirmHost } from './Confirm';
+import { Loader } from './Loader';
 import { RestTimer } from './RestTimer';
+import { AdminScreen } from './screens/Admin';
 import { ActiveWorkout } from './screens/ActiveWorkout';
 import { HistoryScreen } from './screens/History';
 import { LibraryScreen } from './screens/Library';
@@ -29,17 +34,61 @@ import { ProgressScreen } from './screens/Progress';
 import { SummaryModal } from './screens/SummaryModal';
 import { TodayScreen } from './screens/Today';
 
-type Tab = 'today' | 'history' | 'progress' | 'library';
+type Tab = 'today' | 'history' | 'progress' | 'library' | 'admin';
 
-const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Workout', icon: Dumbbell },
   { id: 'history', label: 'History', icon: History },
   { id: 'progress', label: 'Progress', icon: ChartLine },
   { id: 'library', label: 'Exercises', icon: ListChecks },
 ];
+const ADMIN_TAB = { id: 'admin' as Tab, label: 'Admin', icon: ShieldCheck };
 
+/** Signs the user in (server-verified), loads + syncs their data, then shows the app. */
 export function App() {
+  const [ready, setReady] = useState(!isSupabaseConfigured);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    const db = supabase();
+
+    (async () => {
+      // getUser() asks the Auth server, so a forged/expired cookie can't get in.
+      let user = (await db.auth.getUser()).data.user;
+      if (!user && typeof navigator !== 'undefined' && !navigator.onLine) {
+        // Offline at the gym: trust the saved session just to open this device's own copy.
+        user = (await db.auth.getSession()).data.session?.user ?? null;
+      }
+      if (!user) {
+        window.location.assign('/login');
+        return;
+      }
+      const { movedGuestData } = switchUser(user.id);
+      setAccountFromUser(user);
+      void refreshProfile();
+      await startSync(user.id);
+      if (cancelled) return;
+      if (movedGuestData) toast.success('Workouts saved on this device were added to your account');
+      setReady(true);
+    })();
+
+    const { data } = db.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') window.location.assign('/login');
+    });
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  return ready ? <Shell /> : <Loader label="Loading your workouts" />;
+}
+
+function Shell() {
   const { active, onboarded } = useAppState();
+  const account = useAccount();
+  const TABS = account?.role === 'admin' ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
   const [tab, setTab] = useState<Tab>('today');
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
 
@@ -89,7 +138,9 @@ export function App() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="px-4 pb-4 text-xs text-muted-foreground">Data saved on this device</SidebarFooter>
+        <SidebarFooter className="px-4 pb-4">
+          <AccountFooter email={account?.email ?? null} />
+        </SidebarFooter>
       </Sidebar>
 
       <main
@@ -107,6 +158,8 @@ export function App() {
           <HistoryScreen onStarted={() => setTab('today')} />
         ) : tab === 'progress' ? (
           <ProgressScreen />
+        ) : tab === 'admin' && account?.role === 'admin' ? (
+          <AdminScreen />
         ) : (
           <LibraryScreen />
         )}
@@ -122,7 +175,7 @@ export function App() {
 
       {/* Mobile tab bar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t bg-background/90 pb-safe backdrop-blur-lg md:hidden"
+        className={cn('fixed inset-x-0 bottom-0 z-30 grid border-t', TABS.length === 5 ? 'grid-cols-5' : 'grid-cols-4', 'bg-background/90 pb-safe backdrop-blur-lg md:hidden')}
         aria-label="Main"
       >
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -145,15 +198,6 @@ export function App() {
 
       {summary && <SummaryModal summary={summary} onClose={() => setSummary(null)} />}
       {!onboarded && <Onboarding />}
-      <ConfirmHost />
-      <Toaster
-        position="top-center"
-        richColors
-        closeButton
-        duration={3500}
-        offset={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
-        mobileOffset={{ top: 'calc(10px + env(safe-area-inset-top, 0px))', left: 12, right: 12 }}
-      />
     </SidebarProvider>
   );
 }
@@ -174,5 +218,26 @@ function ResumeBar({ startedAt, name, onClick }: { startedAt: number; name: stri
         <span>Continue</span>
       </Button>
     </button>
+  );
+}
+
+/** Signed-in email + a one-line sync status, at the bottom of the desktop sidebar. */
+function AccountFooter({ email }: { email: string | null }) {
+  const sync = useSyncStatus();
+  const label =
+    sync.state === 'syncing' ? 'Syncing…' : sync.state === 'offline' ? 'Offline — saved on this device' : sync.state === 'error' ? 'Sync problem — will retry' : 'All changes saved';
+  return (
+    <div className="flex flex-col gap-0.5 text-xs">
+      {email && <span className="truncate font-medium text-sidebar-foreground">{email}</span>}
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span
+          className={cn(
+            'size-1.5 rounded-full',
+            sync.state === 'idle' ? 'bg-success' : sync.state === 'syncing' ? 'animate-soft-pulse bg-primary' : sync.state === 'offline' ? 'bg-warning' : 'bg-destructive',
+          )}
+        />
+        {email ? label : 'Saved on this device'}
+      </span>
+    </div>
   );
 }

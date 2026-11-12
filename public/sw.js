@@ -1,5 +1,5 @@
 /* RepUp service worker: app shell works offline after the first visit. */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const PRECACHE = ['/', '/manifest.webmanifest', '/favicon-48.png?v=2', '/icon-192.png?v=2', '/icon-512.png?v=2', '/apple-icon.png?v=2'];
@@ -72,7 +72,9 @@ self.addEventListener('fetch', (event) => {
 
   // Pages and everything else: network-first, fall back to cache when offline or slow.
   const network = fetch(req).then((res) => {
-    if (res.ok && (req.mode === 'navigate' || PRECACHE.includes(url.pathname + url.search))) {
+    // Never cache auth pages or a redirect (e.g. to /login after signing out) as the app shell.
+    const authPage = url.pathname.startsWith('/login') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/reset-password');
+    if (res.ok && !res.redirected && !authPage && (req.mode === 'navigate' || PRECACHE.includes(url.pathname + url.search))) {
       const copy = res.clone();
       caches.open(PAGES).then((c) => c.put(req.mode === 'navigate' ? '/' : req, copy));
     }

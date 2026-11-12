@@ -47,6 +47,27 @@ deploy it (e.g. Vercel). Over plain `http://<ip>:3000`, the app works but doesn'
 - **kg or lb** – Settings → Weight unit (a label; numbers already saved are not converted).
 - **Backup** – Save / Restore JSON in Settings.
 
+## Accounts & cloud sync (Supabase)
+
+- **Login required.** `src/proxy.ts` (Next.js 16 Proxy, formerly Middleware) checks the session on every
+  page request and sends signed-out visitors to `/login`. Email + password (with email confirmation),
+  "Forgot password" (same answer whether or not the email exists) and "Continue with Google".
+- **Data lives in the database**, one row per record, every row owned by a user. Row Level Security
+  (`supabase/migrations/*.sql`) means a user can only ever read or write their own rows — even with the
+  public key. Admins are flagged in `profiles.role` and read the user list through `admin_users()`.
+- **Offline-first sync** (`src/lib/sync.ts`): the device keeps a copy per user; changes are pushed
+  ~1.5 s later, pulled on sign-in / focus / reconnect; deletes are soft so other devices see them.
+  Workouts saved before accounts existed are moved into the first account that signs in on that device.
+  Signing out removes that user's copy from the device.
+
+### Setup
+1. Create a Supabase project. Copy `.env.example` → `.env` and fill in the URL + publishable key.
+2. Run `supabase/migrations/20261112000000_init.sql` once (Supabase → SQL Editor → paste → Run).
+3. Supabase → Authentication → URL Configuration: Site URL = your app URL, add `<app URL>/**` to Redirect URLs.
+4. (Google) Create an OAuth client in Google Cloud, redirect URI `https://<ref>.supabase.co/auth/v1/callback`,
+   then paste the Client ID/secret in Supabase → Authentication → Sign In / Providers → Google.
+5. Make yourself admin: SQL Editor → `update public.profiles set role = 'admin' where email = 'you@example.com';`
+
 ## Code map
 
 ```
@@ -54,7 +75,10 @@ src/app/            layout, page, manifest.ts (PWA), globals.css
 src/components/     App shell, tab screens (screens/*), Modal/Confirm, common.tsx (Stat, EmptyState…)
 src/components/ui/  shadcn/ui components (Radix, Tailwind v4) — add more with `npx shadcn@latest add <name>`
 src/lib/types.ts    data model (one interface per future DB table: exercises, plans, workouts, body weights)
-src/lib/store.ts    state + actions, persisted to localStorage
+src/lib/store.ts    state + actions (per-user copy on the device)
+src/lib/sync.ts     Supabase sync engine · src/lib/account.ts sign-out / delete account
+src/lib/supabase/   browser + server clients · src/proxy.ts login gate
+src/app/login, reset-password, auth/callback   auth pages + email/OAuth return route
 src/lib/progression.ts  progression targets + set comparison
 src/lib/theme.ts    light/dark preference (per device)
 src/lib/data/defaults.ts  starter exercises + Push/Pull/Legs week plan

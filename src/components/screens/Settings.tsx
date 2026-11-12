@@ -1,12 +1,14 @@
-import { useId, useRef } from 'react';
-import { Download, Trash2, Upload } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
+import { Download, Loader2, LogOut, RefreshCw, Trash2, Upload, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { deleteAccount, signOut, useAccount, wouldLoseChanges } from '@/lib/account';
 import { actions, useAppState } from '@/lib/store';
+import { syncNow, useSyncStatus } from '@/lib/sync';
 import { setThemePref, useTheme, type ThemePref } from '@/lib/theme';
 import { todayISO } from '@/lib/utils';
 import { confirmDialog } from '../Confirm';
@@ -53,6 +55,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title="Settings" onClose={onClose}>
+      <AccountSection />
       <FieldGroup className="gap-6">
         <FieldSet className="gap-2">
           <FieldLegend variant="label" className="mb-0">
@@ -145,7 +148,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             }}
           />
           <FieldDescription className="text-xs">
-            Your data is saved only in this browser for now. Login &amp; cloud sync are coming next.
+            Your workouts are saved to your account automatically. A backup file is an extra copy you keep yourself.
           </FieldDescription>
         </FieldSet>
 
@@ -168,7 +171,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         onClick={async () => {
           const ok = await confirmDialog({
             title: 'Delete everything?',
-            message: 'All workouts, plans, body weights and settings will be deleted. Save a backup first if you might want them. This cannot be undone.',
+            message:
+              'All workouts, plans, body weights and settings in your account will be deleted (your login stays). Save a backup first if you might want them. This cannot be undone.',
             confirmLabel: 'Delete everything',
             danger: true,
           });
@@ -178,8 +182,102 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           toast('All data deleted');
         }}
       >
-        <Trash2 /> Reset all data
+        <Trash2 /> Delete all my workout data
       </Button>
     </Modal>
+  );
+}
+
+/** Who is signed in, sync status, log out and delete account. */
+function AccountSection() {
+  const account = useAccount();
+  const sync = useSyncStatus();
+  const [busy, setBusy] = useState<null | 'sync' | 'logout' | 'delete'>(null);
+  if (!account) return null;
+
+  const status =
+    sync.state === 'syncing'
+      ? 'Syncing…'
+      : sync.state === 'offline'
+        ? 'Offline — changes are saved on this device and will sync when you’re back online.'
+        : sync.state === 'error'
+          ? 'Couldn’t sync just now. We’ll keep trying.'
+          : sync.lastSyncedAt
+            ? 'All changes saved to your account.'
+            : 'Connected.';
+
+  const logOut = async () => {
+    setBusy('logout');
+    if (await wouldLoseChanges()) {
+      setBusy(null);
+      const ok = await confirmDialog({
+        title: 'Log out without saving?',
+        message: 'Some changes haven’t reached your account yet (no internet). If you log out now they’ll be lost.',
+        confirmLabel: 'Log out anyway',
+        danger: true,
+      });
+      if (!ok) return;
+      setBusy('logout');
+    }
+    await signOut();
+  };
+
+  const remove = async () => {
+    const ok = await confirmDialog({
+      title: 'Delete your account?',
+      message: `This permanently deletes ${account.email} and every workout, plan and setting in it. This cannot be undone.`,
+      confirmLabel: 'Delete my account',
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy('delete');
+    const err = await deleteAccount();
+    if (err) {
+      setBusy(null);
+      toast.error(`Couldn’t delete the account: ${err}`);
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-center gap-3">
+        {account.avatarUrl ? (
+          <img src={account.avatarUrl} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent font-semibold text-accent-foreground uppercase">
+            {(account.name || account.email).slice(0, 1)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{account.name || account.email}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {account.name ? `${account.email} · ` : ''}
+            {account.provider === 'google' ? 'Google account' : 'Email account'}
+            {account.role === 'admin' ? ' · Admin' : ''}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">{status}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          className="h-10"
+          disabled={busy !== null}
+          onClick={async () => {
+            setBusy('sync');
+            await syncNow();
+            setBusy(null);
+          }}
+        >
+          {busy === 'sync' ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
+        </Button>
+        <Button variant="outline" className="h-10" disabled={busy !== null} onClick={logOut}>
+          {busy === 'logout' ? <Loader2 className="animate-spin" /> : <LogOut />} Log out
+        </Button>
+      </div>
+      <Button variant="ghost" size="sm" className="self-start text-destructive hover:text-destructive" disabled={busy !== null} onClick={remove}>
+        {busy === 'delete' ? <Loader2 className="animate-spin" /> : <UserX />} Delete my account
+      </Button>
+    </section>
   );
 }

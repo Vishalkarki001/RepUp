@@ -21,7 +21,11 @@ import { defaultWorkoutName, est1RM, newSet, setUnit, uid } from './utils';
  * same records (exercises, plans, workouts, bodyWeights) to the server.
  */
 
-const KEY = 'gym-workout-tracker:v2';
+/** Data saved before accounts existed (or when Supabase isn't configured). */
+export const GUEST_KEY = 'gym-workout-tracker:v2';
+/** Each signed-in user gets their own on-device copy (offline cache of their cloud data). */
+export const userKey = (uid: string) => `repup:v3:user:${uid}`;
+let KEY = GUEST_KEY;
 
 function initialState(): AppState {
   return {
@@ -148,6 +152,78 @@ function set(updater: (s: AppState) => AppState): void {
     /* storage full / blocked */
   }
   listeners.forEach((l) => l());
+}
+
+/** Current state (for the sync engine). */
+export function getState(): AppState {
+  return state;
+}
+
+/** Listen to every change (for the sync engine). */
+export function subscribeState(l: () => void): () => void {
+  return subscribe(l);
+}
+
+/** Merge on-device guest data into a user's state (workouts, weights and own exercises are combined). */
+function mergeGuest(user: AppState, guest: AppState): AppState {
+  const byId = <T extends { id: string }>(a: T[], b: T[]) => [...new Map([...b, ...a].map((x) => [x.id, x])).values()];
+  const workouts = byId(user.workouts, guest.workouts).sort((a, b) => b.startedAt - a.startedAt);
+  const bodyWeights = byId(user.bodyWeights, guest.bodyWeights).sort((a, b) => b.date.localeCompare(a.date));
+  const exercises = byId(user.exercises, guest.exercises);
+  const fresh = !user.onboarded;
+  return {
+    ...user,
+    exercises,
+    workouts,
+    bodyWeights,
+    plans: fresh ? guest.plans : user.plans,
+    settings: fresh ? guest.settings : user.settings,
+    onboarded: user.onboarded || guest.onboarded,
+    active: user.active ?? guest.active,
+  };
+}
+
+/**
+ * Switch the store to a signed-in user's own data (or back to guest with null).
+ * The first time someone signs in on a device, workouts saved here before
+ * accounts existed are moved into their account (and removed from the guest slot).
+ */
+export function switchUser(uid: string | null): { movedGuestData: boolean } {
+  KEY = uid ? userKey(uid) : GUEST_KEY;
+  let next = load();
+  let movedGuestData = false;
+  if (uid && typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(GUEST_KEY);
+      const guest = raw ? normalize(JSON.parse(raw)) : null;
+      if (raw && guest) {
+        const hasData = guest.workouts.length > 0 || guest.bodyWeights.length > 0 || guest.exercises.some((e) => e.custom);
+        if (hasData || guest.onboarded) {
+          next = mergeGuest(next, guest);
+          movedGuestData = hasData;
+        }
+        localStorage.setItem(`${GUEST_KEY}:moved-to-account`, raw); // safety copy
+        localStorage.removeItem(GUEST_KEY);
+      }
+    } catch {
+      /* storage blocked */
+    }
+  }
+  set(() => next);
+  if (state !== next) state = next;
+  setUnit(state.settings.unit);
+  listeners.forEach((l) => l());
+  return { movedGuestData };
+}
+
+/** Remove a user's on-device copy (on sign out, after everything is synced). */
+export function forgetUserOnDevice(uid: string): void {
+  try {
+    localStorage.removeItem(userKey(uid));
+    localStorage.removeItem(`${userKey(uid)}:synced`);
+  } catch {
+    /* storage blocked */
+  }
 }
 
 function subscribe(l: () => void): () => void {
@@ -326,6 +402,11 @@ export const actions = {
         }),
       ],
     }));
+  },
+
+  /** Replace everything at once (used when cloud data is merged in). */
+  replaceAll(next: AppState) {
+    set(() => next);
   },
 
   updateActive(fn: (w: Workout) => Workout) {
