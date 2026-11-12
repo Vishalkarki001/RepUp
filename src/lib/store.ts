@@ -339,7 +339,7 @@ function planChangesFrom(s: AppState, w: Workout): DayPlan | undefined {
 
 /* ---------- actions ---------- */
 
-function toWorkoutExercise(i: PlanItem): WorkoutExercise {
+export function toWorkoutExercise(i: PlanItem): WorkoutExercise {
   // The planned kg pre-fills the sets only the first time; after that the
   // "last time" numbers and the progression target take over.
   const hasHistory = state.workouts.some((w) => w.exercises.some((e) => e.exerciseId === i.exerciseId));

@@ -10,7 +10,7 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Item, ItemContent, ItemGroup } from '@/components/ui/item';
 import { Textarea } from '@/components/ui/textarea';
-import { actions, exerciseMap, useAppState } from '@/lib/store';
+import { actions, exerciseMap, getState, toWorkoutExercise, useAppState } from '@/lib/store';
 import type { Exercise, Workout } from '@/lib/types';
 import {
   cn,
@@ -24,6 +24,7 @@ import {
   workoutVolume,
 } from '@/lib/utils';
 import { EmptyState, NumBadge, SectionTitle } from '../common';
+import { ExercisePicker } from '../ExercisePicker';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
 import { NumberField } from '../NumberField';
@@ -236,7 +237,25 @@ export function WorkoutDetail({
   onRepeat: () => void;
 }) {
   const [draft, setDraft] = useState<Workout | null>(null);
+  const [picking, setPicking] = useState(false);
   const name = (id: string) => exMap.get(id)?.name ?? 'Deleted exercise';
+
+  // Forgot an exercise? Add it to the finished workout with empty sets to fill in (empty sets are dropped on save).
+  const addExercises = (ids: string[]) =>
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            exercises: [
+              ...d.exercises,
+              ...ids.map((exerciseId) => {
+                const we = toWorkoutExercise({ exerciseId, sets: 3, reps: getState().settings.defaultReps });
+                return { ...we, sets: we.sets.map((x) => ({ ...x, reps: null, done: true })) };
+              }),
+            ],
+          }
+        : d,
+    );
   const w = draft ?? workout;
   const id = useId();
 
@@ -276,7 +295,8 @@ export function WorkoutDetail({
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       title={draft ? 'Edit workout' : workout.name}
       description={
         draft ? undefined : (
@@ -437,6 +457,12 @@ export function WorkoutDetail({
         );
       })}
 
+      {draft && (
+        <Button variant="outline" className="h-10 w-full" onClick={() => setPicking(true)}>
+          <Plus /> Add exercise
+        </Button>
+      )}
+
       {draft ? (
         <Field>
           <FieldLabel htmlFor={`${id}-notes`}>Notes</FieldLabel>
@@ -446,6 +472,16 @@ export function WorkoutDetail({
         workout.note && <p className="rounded-lg bg-muted px-3 py-2 text-sm">📝 {workout.note}</p>
       )}
       {!draft && <p className="text-xs text-muted-foreground">Made a mistake? Tap Edit to fix weights, reps or sets.</p>}
-    </Modal>
+      </Modal>
+      {picking && (
+        <ExercisePicker
+          onClose={() => setPicking(false)}
+          onPick={(ids) => {
+            addExercises(ids);
+            setPicking(false);
+          }}
+        />
+      )}
+    </>
   );
 }
