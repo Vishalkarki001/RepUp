@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -56,7 +56,7 @@ export function DayPlanEditor({ day, onClose }: { day: number; onClose: () => vo
     const before = existing;
     actions.savePlan({ day, name: '', items: [] });
     onClose();
-    toast(`${WEEKDAYS_LONG[day]} is now a rest day`, {
+    toast(`${WEEKDAYS_LONG[day]} plan deleted. It’s a rest day now.`, {
       duration: 6000,
       action: before ? { label: 'Undo', onClick: () => actions.savePlan(before) } : undefined,
     });
@@ -70,7 +70,7 @@ export function DayPlanEditor({ day, onClose }: { day: number; onClose: () => vo
         <div className="flex items-center gap-2">
           {existing && (
             <Button variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={makeRestDay}>
-              Rest day
+              <Trash2 /> Delete plan
             </Button>
           )}
           <Button size="lg" className="h-11 flex-1 text-base" onClick={save} disabled={!items.length}>
