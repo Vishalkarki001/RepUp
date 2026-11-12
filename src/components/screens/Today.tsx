@@ -184,14 +184,14 @@ export function TodayScreen() {
             {/* Already trained this day? Keep the button, but quieter. */}
             <Button
               size="lg"
-              variant={doneOnSelected.length ? 'outline' : 'default'}
+              variant={isToday && doneOnSelected.length ? 'outline' : 'default'}
               className="h-11 w-full text-base"
               onClick={() => actions.startPlan(selected)}
             >
-              <Play className="fill-current" /> {doneOnSelected.length ? 'Start again' : 'Start workout'}
+              <Play className="fill-current" /> {isToday && doneOnSelected.length ? 'Start again' : 'Start workout'}
             </Button>
             <p className="text-xs text-muted-foreground">
-              {doneOnSelected.length && isToday
+              {isToday && doneOnSelected.length > 0
                 ? `Done for today ✓ See you next ${WEEKDAYS_LONG[selected]}.`
                 : lastDone
                   ? `Last done ${formatDate(lastDone)}`
@@ -252,7 +252,8 @@ function planFromWorkout(w: Workout, day: number): DayPlan {
     items: w.exercises.map((e) => {
       const working = e.sets.filter((x) => !x.warmup);
       const sets = working.length || e.sets.length;
-      const reps = Math.max(1, ...working.map((x) => x.reps ?? 0));
+      // Goal reps = the best reps reached; fall back to the workout's own goal if only warm-ups were logged.
+      const reps = working.length ? Math.max(1, ...working.map((x) => x.reps ?? 0)) : Math.max(1, e.repMax);
       return { exerciseId: e.exerciseId, sets, reps };
     }),
   };

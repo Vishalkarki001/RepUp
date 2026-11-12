@@ -465,7 +465,7 @@ export const actions = {
     set((s) => ({
       ...s,
       workouts: exercises.length
-        ? s.workouts.map((x) => (x.id === w.id ? { ...w, exercises } : x))
+        ? s.workouts.map((x) => (x.id === w.id ? { ...w, name: w.name.trim() || x.name, exercises } : x))
         : s.workouts.filter((x) => x.id !== w.id),
     }));
   },
