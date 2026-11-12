@@ -23,8 +23,19 @@ export const LANDING_PAGES = [
 
 export type LandingPath = (typeof LANDING_PAGES)[number]['path'];
 
+/** Legal pages (needed for Google sign-in publishing and for users' trust). */
+export const LEGAL_PAGES = [
+  { path: '/privacy', label: 'Privacy policy' },
+  { path: '/terms', label: 'Terms of use' },
+] as const;
+
+export const CONTACT_EMAIL = 'repup.contact@gmail.com';
+
 /** Paths served to everyone (no login needed). */
-export const MARKETING_PATHS: readonly string[] = LANDING_PAGES.map((p) => p.path).filter((p) => p !== '/');
+export const MARKETING_PATHS: readonly string[] = [
+  ...LANDING_PAGES.map((p) => p.path).filter((p) => p !== '/'),
+  ...LEGAL_PAGES.map((p) => p.path),
+];
 
 /** What the app really does: the only claims landing pages may make. */
 export const APP_FACTS = [

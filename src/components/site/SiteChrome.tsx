@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { cn } from 'cn';
-import { LANDING_PAGES } from '@/lib/site';
+import { CONTACT_EMAIL, LANDING_PAGES, LEGAL_PAGES } from '@/lib/site';
 
 export const SIGNUP_HREF = '/login?mode=signup';
 export const LOGIN_HREF = '/login';
@@ -85,6 +85,16 @@ export function SiteFooter({ className, mutedClass, current }: { className?: str
         </nav>
       </div>
       <div className={cn('mx-auto w-full max-w-6xl px-4 pb-10 text-xs leading-relaxed sm:px-6', mutedClass)}>
+        <nav aria-label="Legal" className="mb-3 flex flex-wrap gap-x-5 gap-y-1">
+          {LEGAL_PAGES.map((p) => (
+            <Link key={p.path} href={p.path} className="hover:underline">
+              {p.label}
+            </Link>
+          ))}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="hover:underline">
+            Contact: {CONTACT_EMAIL}
+          </a>
+        </nav>
         <p>
           Training and diet tips here are general information, not medical advice. If you have an injury or a health condition,
           check with a doctor first. © {new Date().getFullYear()} RepUp.

@@ -290,7 +290,15 @@ export function LoginScreen({
       </Card>
 
       <p className="max-w-sm text-center text-xs text-muted-foreground">
-        By continuing you agree to keep lifting. Your data is private to your account.
+        By continuing you agree to our{' '}
+        <a href="/terms" className="underline underline-offset-2 hover:text-foreground">
+          Terms
+        </a>{' '}
+        and{' '}
+        <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy policy
+        </a>
+        . Your data is private to your account.
       </p>
     </div>
   );

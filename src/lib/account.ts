@@ -86,6 +86,16 @@ export async function signOut(): Promise<void> {
 /** Permanently delete the account and all its data (database cascade), then sign out. */
 export async function deleteAccount(): Promise<string | null> {
   const id = account?.id;
+  // Profile photos live in Storage, outside the database cascade: remove them first.
+  if (id) {
+    try {
+      const storage = supabase().storage.from(AVATAR_BUCKET);
+      const { data } = await storage.list(id);
+      if (data?.length) await storage.remove(data.map((f) => `${id}/${f.name}`));
+    } catch {
+      /* keep going: the account itself must still be deleted */
+    }
+  }
   const { error } = await supabase().rpc('delete_my_account');
   if (error) return error.message;
   stopSync();
