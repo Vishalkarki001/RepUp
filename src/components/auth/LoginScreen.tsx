@@ -10,12 +10,28 @@ import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase/client';
-import { safeNext } from '@/lib/supabase/env';
+import { safeNext, SUPABASE_KEY, SUPABASE_URL } from '@/lib/supabase/env';
 import { friendlyAuthError } from './errors';
 
 type Mode = 'login' | 'signup' | 'forgot' | 'check-email' | 'reset-sent';
 
 const MIN_PASSWORD = 8;
+
+/**
+ * Is "Continue with Google" switched on in Supabase? Asked before redirecting,
+ * because a disabled provider shows a raw JSON error page instead of the app.
+ * (Public endpoint: it only lists which login methods are enabled.)
+ */
+async function googleEnabled(): Promise<boolean | null> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { external?: Record<string, boolean> };
+    return Boolean(data.external?.google);
+  } catch {
+    return null; // offline / unknown: let the normal flow report the error
+  }
+}
 
 /** Email + password login, sign up, forgot password and Google — all on one card. */
 export function LoginScreen({ next, initialError }: { next?: string; initialError?: string }) {
@@ -86,6 +102,11 @@ export function LoginScreen({ next, initialError }: { next?: string; initialErro
   const google = async () => {
     setError(null);
     setBusy('google');
+    if ((await googleEnabled()) === false) {
+      setBusy(null);
+      setError('Google login isn’t switched on yet. Please use email and password for now.');
+      return;
+    }
     const { error: err } = await supabase().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: callback(after) } });
     if (err) {
       setBusy(null);
