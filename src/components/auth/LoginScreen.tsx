@@ -103,6 +103,14 @@ export function LoginScreen({
       window.location.assign('/');
       return;
     }
+    // Supabase answers "ok" for an email that already has an account, but sends
+    // nothing and leaves that account untouched. It marks this with no identities.
+    if (data.user && data.user.identities?.length === 0) {
+      setPassword('');
+      setMode('login');
+      setError('An account with this email already exists. Log in, or tap “Forgot password?” to reset it.');
+      return;
+    }
     setPassword('');
     setMode('check-email');
   };
