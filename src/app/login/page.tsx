@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 
 export const metadata: Metadata = {
-  title: 'Log in or sign up · RepUp',
+  title: 'Log in or sign up',
   description: 'Log in to RepUp, the free gym workout tracker. Sign up with email or Google.',
   alternates: { canonical: '/login' },
 };

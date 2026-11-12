@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChartLine, Dumbbell, History, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { ChartLine, Dumbbell, History, ListChecks, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +17,7 @@ import {
   SidebarProvider,
 } from '@/components/ui/sidebar';
 import { refreshProfile, setAccountFromUser, useAccount } from '@/lib/account';
+import { onOpenAdminDashboard } from '@/lib/nav';
 import { switchUser, useAppState } from '@/lib/store';
 import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
@@ -42,7 +43,6 @@ const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'progress', label: 'Progress', icon: ChartLine },
   { id: 'library', label: 'Exercises', icon: ListChecks },
 ];
-const ADMIN_TAB = { id: 'admin' as Tab, label: 'Admin', icon: ShieldCheck };
 
 /** Signs the user in (server-verified), loads + syncs their data, then shows the app. */
 export function App() {
@@ -88,7 +88,8 @@ export function App() {
 function Shell() {
   const { active, onboarded } = useAppState();
   const account = useAccount();
-  const TABS = account?.role === 'admin' ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+  // Admins open their dashboard from the account menu, so the tabs are the same for everyone.
+  const TABS = BASE_TABS;
   useSyncToasts();
   const [tab, setTab] = useState<Tab>('today');
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
@@ -102,6 +103,8 @@ function Shell() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab]);
+
+  useEffect(() => onOpenAdminDashboard(() => setTab('admin')), []);
 
   const showWorkout = tab === 'today' && active;
 

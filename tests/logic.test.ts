@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { platesPerSide } from '../src/lib/plates';
 import { compareSet, suggestTarget } from '../src/lib/progression';
-import { actions } from '../src/lib/store';
+import { actions, toWorkoutExercise } from '../src/lib/store';
+import { LEGAL_PAGES, MARKETING_PATHS } from '../src/lib/site';
 import type { SetEntry } from '../src/lib/types';
 import { est1RM, formatVolume, formatW, setUnit, startOfWeek } from '../src/lib/utils';
 
@@ -219,6 +220,33 @@ describe('store', () => {
     actions.restoreWorkout(w);
     assert.ok(state().workouts.some((x: { id: string }) => x.id === w.id));
   });
+  test('blank workout starts unnamed; finishing without a name uses the time of day', () => {
+    actions.startEmptyWorkout();
+    assert.equal(state().active.name, '');
+    actions.addToActive(['bench-press']);
+    actions.updateActive((w) => ({ ...w, exercises: w.exercises.map((e) => ({ ...e, sets: [S(40, 10)] })) }));
+    const done = actions.finishWorkout()!;
+    assert.match(done.workout.name, /^(Morning|Afternoon|Evening) Workout$/);
+    assert.equal(state().workouts[0].name, done.workout.name);
+  });
+  test('blank workout keeps the name you type (extra spaces trimmed)', () => {
+    actions.startEmptyWorkout();
+    actions.addToActive(['bench-press']);
+    actions.updateActive((w) => ({ ...w, name: '  Chest day ', exercises: w.exercises.map((e) => ({ ...e, sets: [S(40, 10)] })) }));
+    assert.equal(actions.finishWorkout()!.workout.name, 'Chest day');
+    assert.equal(state().workouts[0].name, 'Chest day');
+  });
+  test('edit: blank name keeps the old one; a forgotten exercise can be added, empty sets dropped', () => {
+    const w = state().workouts[0];
+    const added = toWorkoutExercise({ exerciseId: 'squat', sets: 3, reps: 10 });
+    added.sets = added.sets.map((x, i) => ({ ...x, done: true, weight: 60, reps: i === 0 ? 8 : null }));
+    actions.updateWorkout({ ...w, name: '   ', exercises: [...w.exercises, added] });
+    const u = state().workouts.find((x: { id: string }) => x.id === w.id);
+    assert.equal(u.name, w.name);
+    const squat = u.exercises.find((e: { exerciseId: string }) => e.exerciseId === 'squat');
+    assert.equal(squat.sets.length, 1);
+    assert.equal(squat.sets[0].reps, 8);
+  });
   test('rest day removes the plan; deleting an exercise removes it from plans', () => {
     actions.savePlan({ day: 3, name: '', items: [] });
     assert.ok(!state().plans.some((p: { day: number }) => p.day === 3));
@@ -253,5 +281,14 @@ describe('store', () => {
     assert.equal(s.workouts.length, 0);
     actions.finishOnboarding([]);
     assert.equal(state().plans.length, 0);
+  });
+});
+
+describe('website routes', () => {
+  test('landing and legal pages are public; "/" is handled by the page itself', () => {
+    assert.ok(!MARKETING_PATHS.includes('/'));
+    for (const p of LEGAL_PAGES) assert.ok(MARKETING_PATHS.includes(p.path));
+    assert.ok(MARKETING_PATHS.includes('/workout-log'));
+    assert.ok(!MARKETING_PATHS.some((p) => p.startsWith('/login') || p.startsWith('/auth')));
   });
 });

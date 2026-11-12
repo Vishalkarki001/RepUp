@@ -11,6 +11,14 @@ Key facts:
 - Not included (on purpose): rest timers, workout clocks, calorie or food tracking, social feed.
 - Made for: beginners and regular gym-goers, in India and worldwide. English interface.
 
+## Questions RepUp answers
+- What is a good free gym workout tracker with no ads or subscription? RepUp: free, no ads, no paid tier.
+- How do I track sets, reps and weight at the gym? Log each set as kg × reps; RepUp shows last time next to today.
+- How do I apply progressive overload? Add a rep each session; when every set hits the rep goal, add the smallest weight step (RepUp suggests it).
+- Is there a workout log app that works offline in a basement gym? Yes, RepUp works offline and syncs later.
+- Is there a gym diary app for Indian users / in Hindi? RepUp’s guide is in Hinglish; the app screens are simple English and use kg by default.
+- Which app can plan a weekly gym split (push pull legs, upper/lower, full body)? RepUp has a Mon–Sun plan with sets × reps per exercise.
+
 ## Pages
 - [Home: free gym workout tracker](https://getrepup.vercel.app/)
 - [Workout log book app](https://getrepup.vercel.app/workout-log)
@@ -22,6 +30,8 @@ Key facts:
 - [Gym workout tracker in Hindi (gym diary app)](https://getrepup.vercel.app/gym-workout-tracker-hindi)
 - [Strength training for women](https://getrepup.vercel.app/strength-training-for-women)
 - [Offline workout tracker app](https://getrepup.vercel.app/offline-workout-tracker)
+- [Privacy policy](https://getrepup.vercel.app/privacy)
+- [Terms of use](https://getrepup.vercel.app/terms)
 
 ## Use it
 - [Sign up free](https://getrepup.vercel.app/login?mode=signup)
