@@ -1,8 +1,8 @@
 /* RepUp service worker: app shell works offline after the first visit. */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
-const PRECACHE = ['/', '/manifest.webmanifest', '/favicon-48.png?v=2', '/icon-192.png?v=2', '/icon-512.png?v=2', '/apple-icon.png?v=2'];
+const PRECACHE = ['/', '/manifest.webmanifest', '/favicon-48.png?v=3', '/icon-192.png?v=3', '/icon-512.png?v=3', '/apple-icon.png?v=3'];
 /** Old hashed build files are trimmed so the cache doesn't grow forever. */
 const MAX_STATIC = 80;
 /** On a weak gym connection, fall back to the saved copy after this long. */
@@ -73,8 +73,10 @@ self.addEventListener('fetch', (event) => {
   // Pages and everything else: network-first, fall back to cache when offline or slow.
   const network = fetch(req).then((res) => {
     // Never cache auth pages or a redirect (e.g. to /login after signing out) as the app shell.
-    const authPage = url.pathname.startsWith('/login') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/reset-password');
-    if (res.ok && !res.redirected && !authPage && (req.mode === 'navigate' || PRECACHE.includes(url.pathname + url.search))) {
+    // Only the app itself ("/" while signed in) is kept as the offline copy: not the
+    // public website pages, and not the home page a signed-out visitor sees.
+    const appShell = url.pathname === '/' && res.headers.get('x-repup-shell') !== 'landing';
+    if (res.ok && !res.redirected && (req.mode === 'navigate' ? appShell : PRECACHE.includes(url.pathname + url.search))) {
       const copy = res.clone();
       caches.open(PAGES).then((c) => c.put(req.mode === 'navigate' ? '/' : req, copy));
     }

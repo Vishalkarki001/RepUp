@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { ConfirmHost } from './Confirm';
+// Starts listening for the browser's install event as early as possible.
+import '@/lib/install';
 
 /** App-wide pieces every page needs (login page included): toasts + confirm dialog. */
 export function Providers({ children }: { children: ReactNode }) {

@@ -34,8 +34,16 @@ async function googleEnabled(): Promise<boolean | null> {
 }
 
 /** Email + password login, sign up, forgot password and Google — all on one card. */
-export function LoginScreen({ next, initialError }: { next?: string; initialError?: string }) {
-  const [mode, setMode] = useState<Mode>('login');
+export function LoginScreen({
+  next,
+  initialError,
+  initialMode = 'login',
+}: {
+  next?: string;
+  initialError?: string;
+  initialMode?: 'login' | 'signup';
+}) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -125,7 +133,7 @@ export function LoginScreen({ next, initialError }: { next?: string; initialErro
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-10">
       <div className="flex items-center gap-2.5">
-        <img src="/icon-192.png?v=2" alt="" className="size-10" />
+        <img src="/icon-192.png?v=3" alt="" className="size-10" />
         <span className="wordmark text-2xl">
           Rep<b>Up</b>
         </span>

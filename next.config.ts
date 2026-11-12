@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Lets a test build run in its own folder (NEXT_DIST_DIR=.next-verify) while `next dev` keeps using .next.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // The floating dev "N" badge sat on top of the bottom tab bar on phones.
   devIndicators: false,
   async headers() {

@@ -1,12 +1,15 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isSupabaseConfigured, SUPABASE_KEY, SUPABASE_URL } from '@/lib/supabase/env';
+import { MARKETING_PATHS } from '@/lib/site';
 
 /**
  * Runs before every page request (Next.js 16 "Proxy", formerly Middleware).
  *  - keeps the Supabase session cookie fresh;
  *  - sends signed-out visitors to /login, so nothing inside the app is served
- *    to them;
+ *    to them. Exception: "/" shows the public home page to signed-out visitors
+ *    (the page reads the `x-repup-auth` header set here);
+ *  - lets everyone see the landing pages (see src/lib/site.ts);
  *  - sends signed-in users away from /login.
  * This is the "front door" check. The data itself is protected separately by
  * Row Level Security in the database, so even a bypassed page can't read
@@ -21,6 +24,9 @@ export async function proxy(request: NextRequest) {
   // allow-listed), a login/confirm/reset `code` can land on "/" or "/login".
   // Hand it to the callback route so it isn't lost.
   const landed = request.nextUrl;
+  // Landing pages are the same for everyone: no session work needed.
+  if (MARKETING_PATHS.includes(landed.pathname)) return NextResponse.next();
+
   if ((landed.searchParams.has('code') || landed.searchParams.has('token_hash')) && !landed.pathname.startsWith('/auth/')) {
     const url = landed.clone();
     url.pathname = '/auth/callback';
@@ -61,6 +67,23 @@ export async function proxy(request: NextRequest) {
     return res;
   };
 
+  if (pathname === '/') {
+    // Opened from the home-screen icon while signed out: straight to login.
+    if (!signedIn && request.nextUrl.searchParams.get('source') === 'pwa') return redirectTo('/login');
+    // Tell the page who is asking. Always overwrite, so a visitor can't send their own value.
+    const headers = new Headers(request.headers);
+    headers.set('x-repup-auth', signedIn ? '1' : '0');
+    const res = NextResponse.next({ request: { headers } });
+    response.cookies.getAll().forEach((c) => res.cookies.set(c));
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== 'set-cookie' && !key.toLowerCase().startsWith('x-middleware')) res.headers.set(key, value);
+    });
+    res.headers.set('Cache-Control', 'private, no-store');
+    // Lets the service worker keep only the app (not the home page) as its offline copy.
+    res.headers.set('x-repup-shell', signedIn ? 'app' : 'landing');
+    return res;
+  }
+
   if (!signedIn && !isPublic) {
     const next = pathname === '/' ? '' : `?next=${encodeURIComponent(pathname + search)}`;
     return redirectTo(`/login${next}`);
@@ -75,6 +98,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except Next.js assets, icons, the manifest and the service worker.
   matcher: [
-    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map)$).*)',
+    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map)$).*)',
   ],
 };

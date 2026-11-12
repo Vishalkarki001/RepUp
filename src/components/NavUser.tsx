@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { ChevronsUpDown, LogOut, RefreshCw, Settings, UserPen } from 'lucide-react';
+import { ChevronsUpDown, LogOut, RefreshCw, Settings, UserPen, UserPlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,22 @@ import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
 import { SettingsModal } from './screens/Settings';
 import { UserAvatar } from './UserAvatar';
+
+const INVITE_TEXT = 'I track my gym workouts with RepUp. Free, simple, shows what you lifted last time:';
+
+/** Share RepUp with a gym friend: the phone's share sheet, else WhatsApp. */
+async function inviteFriend() {
+  const url = `${window.location.origin}/`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'RepUp', text: INVITE_TEXT, url });
+      return;
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // closed the share sheet
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${INVITE_TEXT} ${url}`)}`, '_blank', 'noopener');
+}
 
 function Who({ account }: { account: Account }) {
   return (
@@ -68,6 +84,9 @@ export function AccountMenu({
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void syncNow()}>
               <RefreshCw /> Sync now
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void inviteFriend()}>
+              <UserPlus /> Invite a gym friend
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

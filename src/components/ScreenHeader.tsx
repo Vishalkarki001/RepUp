@@ -1,21 +1,45 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { Moon, Settings, Sun } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { CircleQuestionMark, Download, Moon, Settings, Sun } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useAccount } from '@/lib/account';
+import { promptInstall, useInstall } from '@/lib/install';
+import { useAppState } from '@/lib/store';
 import { setThemePref, useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { HelpGuide } from './HelpGuide';
 import { AccountMenu } from './NavUser';
 import { UserAvatar } from './UserAvatar';
 import { SettingsModal } from './screens/Settings';
 import { SyncIndicator } from './SyncIndicator';
 
-/** Page title + the two buttons every screen has: light/dark switch and settings. */
+const HELP_SEEN = 'repup:help-seen';
+/** The guide opens by itself once per device, so a new user knows what to do. */
+let helpChecked = false;
+
+/** Page title + the buttons every screen has: install (when possible), light/dark, help and settings. */
 export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode; title: string; children?: ReactNode }) {
   const { theme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const account = useAccount();
+  const { canPrompt } = useInstall();
+  const { onboarded } = useAppState();
+
+  useEffect(() => {
+    // wait until the first-run setup is done, so two windows don't open at once
+    if (helpChecked || !onboarded) return;
+    helpChecked = true;
+    try {
+      if (localStorage.getItem(HELP_SEEN)) return;
+      localStorage.setItem(HELP_SEEN, '1');
+    } catch {
+      return;
+    }
+    setHelpOpen(true);
+  }, [onboarded]);
 
   return (
     <header className="flex items-center gap-1 pt-4 pb-1 md:pt-8">
@@ -25,6 +49,19 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
       </div>
       {children}
       <SyncIndicator />
+      {canPrompt && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mx-0.5"
+          onClick={async () => {
+            if (await promptInstall()) toast.success('RepUp is on your home screen');
+          }}
+          title="Install RepUp on this device"
+        >
+          <Download /> Install
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"
@@ -33,6 +70,9 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
         title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
       >
         {theme === 'dark' ? <Sun /> : <Moon />}
+      </Button>
+      <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} aria-label="How to use RepUp" title="Help">
+        <CircleQuestionMark />
       </Button>
       {/* Desktop (and signed-out): gear. Phones: your photo opens the account menu. */}
       <Button
@@ -53,6 +93,7 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
         </AccountMenu>
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
     </header>
   );
 }

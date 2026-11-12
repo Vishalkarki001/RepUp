@@ -111,7 +111,7 @@ function Shell() {
       <Sidebar collapsible="none" className="fixed inset-y-0 left-0 z-30 hidden h-dvh border-r md:flex">
         <SidebarHeader className="px-4 pt-5 pb-4">
           <div className="flex items-center gap-2.5">
-            <img src="/icon-192.png?v=2" alt="" className="size-8" />
+            <img src="/icon-192.png?v=3" alt="" className="size-8" />
             <span className="wordmark text-xl">
               Rep<b>Up</b>
             </span>

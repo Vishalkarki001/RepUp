@@ -1,0 +1,27 @@
+# RepUp
+
+> RepUp is a free gym workout tracker (web app, installable on Android and iPhone). You plan your week by day, log every set as kg (or lb) × reps, and the app shows what you lifted last time plus a target for today, so you apply progressive overload without doing maths.
+
+Key facts:
+- Price: free. No ads.
+- Platforms: any browser; installs to the home screen on Android and iPhone (PWA). Works offline at the gym and saves to your account when back online.
+- Sign in: email + password, or Google. Same data on phone and laptop.
+- Logging: weekly plan (Mon–Sun) with sets × reps per exercise; tick each set; "Last time" numbers and a suggested target; edit past workouts; custom exercises; plate calculator for barbells.
+- Progress: charts per exercise, weekly sets per muscle group, body-weight log, workout history by date.
+- Not included (on purpose): rest timers, workout clocks, calorie or food tracking, social feed.
+- Made for: beginners and regular gym-goers, in India and worldwide. English interface.
+
+## Pages
+- [Home: free gym workout tracker](https://getrepup.vercel.app/)
+- [Workout log book app](https://getrepup.vercel.app/workout-log)
+- [Progressive overload tracker](https://getrepup.vercel.app/progressive-overload-tracker)
+- [Push pull legs workout planner](https://getrepup.vercel.app/push-pull-legs-workout-planner)
+- [Beginner gym workout plan](https://getrepup.vercel.app/beginner-gym-workout-plan)
+- [Weight loss workout tracker](https://getrepup.vercel.app/weight-loss-workout-tracker)
+- [Muscle gain workout log and protein guide](https://getrepup.vercel.app/muscle-gain-workout-log)
+- [Gym workout tracker in Hindi (gym diary app)](https://getrepup.vercel.app/gym-workout-tracker-hindi)
+- [Strength training for women](https://getrepup.vercel.app/strength-training-for-women)
+- [Offline workout tracker app](https://getrepup.vercel.app/offline-workout-tracker)
+
+## Use it
+- [Sign up free](https://getrepup.vercel.app/login?mode=signup)

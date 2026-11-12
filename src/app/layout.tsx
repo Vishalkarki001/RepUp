@@ -2,21 +2,51 @@ import type { Metadata, Viewport } from 'next';
 import { Geist } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/Providers';
+import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'RepUp — Gym Workout Tracker',
-  description: 'Log sets, reps and weight. See what you lifted last time and get a target for today.',
-  applicationName: 'RepUp',
+  metadataBase: new URL(SITE_URL),
+  title: { default: 'RepUp: Free Gym Workout Tracker', template: '%s | RepUp' },
+  description:
+    'Free gym workout tracker and workout log. Log sets, reps and kg, see what you lifted last time and get a target for today.',
+  applicationName: SITE_NAME,
+  keywords: [
+    'gym workout tracker',
+    'workout log app',
+    'gym tracker app free',
+    'progressive overload tracker',
+    'workout planner',
+    'gym diary',
+    'fitness tracker India',
+  ],
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: 'en_IN',
+    url: '/',
+    title: 'RepUp: Free Gym Workout Tracker',
+    description: 'Log sets, reps and kg. See last time. Beat it.',
+  },
+  twitter: { card: 'summary_large_image', title: 'RepUp: Free Gym Workout Tracker', description: 'Log sets, reps and kg. See last time. Beat it.' },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 } },
+  category: 'fitness',
+  // Search Console / Bing Webmaster ownership checks. Paste the codes into Vercel env vars.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
+  },
   appleWebApp: { capable: true, title: 'RepUp', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: '/favicon-48.png?v=2', sizes: '48x48', type: 'image/png' },
-      { url: '/icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-48.png?v=3', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-192.png?v=3', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/apple-icon.png?v=2',
+    apple: '/apple-icon.png?v=3',
   },
 };
 
