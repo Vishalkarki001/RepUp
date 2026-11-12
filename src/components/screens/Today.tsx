@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CircleCheck, ChevronRight, Pencil, Play, Plus } from 'lucide-react';
+import { CircleCheck, ChevronRight, Pencil, Play, Plus, Repeat } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { actions, exerciseMap, planForDay, useAppState } from '@/lib/store';
-import { WEEKDAYS, WEEKDAYS_LONG, type Exercise, type Muscle, type Workout } from '@/lib/types';
+import { WEEKDAYS, WEEKDAYS_LONG, type DayPlan, type Exercise, type Muscle, type Workout } from '@/lib/types';
 import { cn, formatDate, formatKg, formatVolume, formatW, startOfWeek, useNow, workoutVolume } from '@/lib/utils';
 import { EmptyState, NumBadge, SectionTitle, Stat, StatGrid } from '../common';
 import { ScreenHeader } from '../ScreenHeader';
@@ -117,9 +118,25 @@ export function TodayScreen() {
       ))}
 
       {!plan && doneOnSelected.length > 0 && (
-        <Button variant="ghost" size="sm" className="-mt-2 self-center text-muted-foreground" onClick={() => setEditing(true)}>
-          <Plus /> Plan {WEEKDAYS_LONG[selected]}&apos;s workout for next week
-        </Button>
+        <div className="-mt-1 flex flex-col items-center gap-1.5 rounded-xl border border-dashed px-4 py-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            {WEEKDAYS_LONG[selected]} has no plan yet. Save this workout as the plan, and every {WEEKDAYS_LONG[selected]} it will be
+            ready with last time&apos;s numbers.
+          </p>
+          <Button
+            className="mt-1"
+            onClick={() => {
+              const last = doneOnSelected[doneOnSelected.length - 1];
+              actions.savePlan(planFromWorkout(last, selected));
+              toast.success(`Saved as your ${WEEKDAYS_LONG[selected]} plan`);
+            }}
+          >
+            <Repeat /> Repeat this every {WEEKDAYS_LONG[selected]}
+          </Button>
+          <Button variant="link" size="sm" className="h-auto text-muted-foreground" onClick={() => setEditing(true)}>
+            or plan {WEEKDAYS_LONG[selected]} yourself
+          </Button>
+        </div>
       )}
 
       {plan ? (
@@ -164,11 +181,21 @@ export function TodayScreen() {
           </CardContent>
 
           <CardFooter className="flex-col gap-2 border-t px-4 py-4">
-            <Button size="lg" className="h-11 w-full text-base" onClick={() => actions.startPlan(selected)}>
-              <Play className="fill-current" /> Start workout
+            {/* Already trained this day? Keep the button, but quieter. */}
+            <Button
+              size="lg"
+              variant={doneOnSelected.length ? 'outline' : 'default'}
+              className="h-11 w-full text-base"
+              onClick={() => actions.startPlan(selected)}
+            >
+              <Play className="fill-current" /> {doneOnSelected.length ? 'Start again' : 'Start workout'}
             </Button>
             <p className="text-xs text-muted-foreground">
-              {lastDone ? `Last done ${formatDate(lastDone)}` : 'Tap Start, then tick ✓ after each set.'}
+              {doneOnSelected.length && isToday
+                ? `Done for today ✓ See you next ${WEEKDAYS_LONG[selected]}.`
+                : lastDone
+                  ? `Last done ${formatDate(lastDone)}`
+                  : 'Tap Start, then tick ✓ after each set.'}
             </p>
           </CardFooter>
         </Card>
@@ -187,7 +214,7 @@ export function TodayScreen() {
       )}
 
       <Button variant="outline" className="w-full border-dashed text-muted-foreground" onClick={() => actions.startEmptyWorkout()}>
-        <Plus /> Start a blank workout
+        <Plus /> {isToday && doneOnSelected.length ? 'Start another workout' : 'Start a blank workout'}
       </Button>
 
       <section className="flex flex-col gap-2">
@@ -215,6 +242,20 @@ export function TodayScreen() {
       )}
     </div>
   );
+}
+
+/** Turn a finished workout into that weekday's plan: same exercises, sets and the best reps reached. */
+function planFromWorkout(w: Workout, day: number): DayPlan {
+  return {
+    day,
+    name: w.name || 'Workout',
+    items: w.exercises.map((e) => {
+      const working = e.sets.filter((x) => !x.warmup);
+      const sets = working.length || e.sets.length;
+      const reps = Math.max(1, ...working.map((x) => x.reps ?? 0));
+      return { exerciseId: e.exerciseId, sets, reps };
+    }),
+  };
 }
 
 /** A finished workout on the selected day: name, totals and each exercise's best set. Tap to open it. */
