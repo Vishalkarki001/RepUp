@@ -13,12 +13,13 @@ export function Providers({ children }: { children: ReactNode }) {
       {children}
       <ConfirmHost />
       <Toaster
-        position="top-center"
+        position="bottom-right"
         richColors
         closeButton
         duration={3500}
-        offset={{ top: 'calc(12px + env(safe-area-inset-top, 0px))' }}
-        mobileOffset={{ top: 'calc(10px + env(safe-area-inset-top, 0px))', left: 12, right: 12 }}
+        offset={{ bottom: 24, right: 24 }}
+        // Phones: sit just above the bottom tab bar (64px) and the home indicator.
+        mobileOffset={{ bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))', left: 12, right: 12 }}
       />
     </>
   );
