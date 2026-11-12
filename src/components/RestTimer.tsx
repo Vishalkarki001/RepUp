@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { actions, useAppState } from '@/lib/store';
 import { beep, formatClock, useNow } from '@/lib/utils';
 
@@ -20,20 +21,20 @@ export function RestTimer() {
   const pct = Math.min(100, (remaining / (restTotal * 1000)) * 100);
 
   return (
-    <div className="rest-bar">
-      <div className="rest-progress" style={{ width: `${pct}%` }} />
-      <div className="rest-inner">
-        <span className="rest-label">Rest</span>
-        <span className="rest-time">{formatClock(remaining)}</span>
-        <button className="btn small" onClick={() => actions.adjustRest(-15)}>
+    <div className="pointer-events-auto relative overflow-hidden rounded-xl border bg-popover shadow-lg" role="timer" aria-label="Rest timer">
+      <div className="absolute inset-y-0 left-0 bg-accent transition-[width] duration-300 ease-linear" style={{ width: `${pct}%` }} aria-hidden />
+      <div className="relative flex items-center gap-1.5 px-3 py-2 sm:gap-2 sm:px-4">
+        <span className="text-xs font-medium text-muted-foreground uppercase">Rest</span>
+        <span className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-brand tabular">{formatClock(remaining)}</span>
+        <Button variant="outline" size="sm" className="px-2 tabular" onClick={() => actions.adjustRest(-15)}>
           −15
-        </button>
-        <button className="btn small" onClick={() => actions.adjustRest(15)}>
+        </Button>
+        <Button variant="outline" size="sm" className="px-2 tabular" onClick={() => actions.adjustRest(15)}>
           +15
-        </button>
-        <button className="btn small primary" onClick={() => actions.stopRest()}>
+        </Button>
+        <Button size="sm" onClick={() => actions.stopRest()}>
           Skip
-        </button>
+        </Button>
       </div>
     </div>
   );

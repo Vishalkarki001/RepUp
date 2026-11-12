@@ -1,13 +1,20 @@
 import { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Check, Ellipsis, Minus, Plus, Timer } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Field, FieldDescription, FieldLabel, FieldTitle } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { compareSet, suggestTarget, type SetTarget } from '@/lib/progression';
 import { actions, exerciseMap, lastSessionFor, useAppState } from '@/lib/store';
 import type { Exercise, SetEntry, Workout, WorkoutExercise, WorkoutSummary } from '@/lib/types';
-import { formatDate, formatDuration, formatKg, formatVolume, newSet, unitLabel, unlockAudio, useNow, useWakeLock, workoutVolume } from '@/lib/utils';
+import { cn, formatDate, formatDuration, formatKg, formatVolume, newSet, unitLabel, unlockAudio, useNow, useWakeLock, workoutVolume } from '@/lib/utils';
+import { EmptyState } from '../common';
 import { confirmDialog } from '../Confirm';
 import { ExercisePicker } from '../ExercisePicker';
 import { PlateCalculator } from '../PlateCalculator';
-import { CheckIcon, PlusIcon } from '../Icons';
 import { Modal } from '../Modal';
 import { Stepper } from '../Stepper';
 import { ExerciseHistoryModal } from './ExerciseHistory';
@@ -65,28 +72,29 @@ export function ActiveWorkout({ onFinished }: Props) {
   const optionsEx = w.exercises.find((e) => e.id === optionsFor);
 
   return (
-    <div className="screen workout">
-      <header className="workout-head">
-        <div className="grow">
-          <input
-            className="title-input"
+    <div className="flex flex-col gap-4">
+      <header className="sticky top-0 z-10 -mx-4 -mt-[env(safe-area-inset-top,0px)] flex items-center gap-3 border-b bg-background/90 px-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-3 backdrop-blur-lg md:-mx-8 md:px-8">
+        <div className="min-w-0 flex-1">
+          <Input
+            className="-mx-1 h-auto truncate rounded-md border-transparent bg-transparent px-1 py-0 text-xl font-semibold tracking-tight shadow-none focus-visible:bg-muted md:text-xl dark:bg-transparent"
             value={w.name}
             onChange={(e) => actions.updateActive((x) => ({ ...x, name: e.target.value }))}
             aria-label="Workout name"
           />
-          <p className="muted small">
-            ⏱ {formatDuration(now - w.startedAt)} · {doneSets}/{totalSets} sets · {formatVolume(workoutVolume(w))}
+          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground tabular">
+            <Timer className="size-3.5 shrink-0" aria-hidden />
+            {formatDuration(now - w.startedAt)} · {doneSets}/{totalSets} sets · {formatVolume(workoutVolume(w))}
           </p>
         </div>
-        <button className="btn primary" onClick={finish}>
+        <Button size="lg" className="h-10 shrink-0 px-4" onClick={finish}>
           Finish
-        </button>
+        </Button>
       </header>
 
       {w.exercises.length === 0 && (
-        <div className="card empty-card">
-          <p>Add the exercises you are doing today. Last time&apos;s weight & reps will show automatically.</p>
-        </div>
+        <EmptyState emoji="🏋️" title="No exercises yet">
+          Add the exercises you are doing today. Last time&apos;s weight & reps will show automatically.
+        </EmptyState>
       )}
 
       {w.exercises.map((we) => {
@@ -103,21 +111,21 @@ export function ActiveWorkout({ onFinished }: Props) {
         );
       })}
 
-      <button className="btn soft block lg" onClick={() => setPicking(true)}>
-        <PlusIcon /> Add exercise
-      </button>
+      <Button variant="outline" size="lg" className="h-11 w-full" onClick={() => setPicking(true)}>
+        <Plus /> Add exercise
+      </Button>
 
-      <textarea
-        className="input"
+      <Textarea
         rows={2}
         placeholder="Workout notes (how you felt, sleep, energy…)"
         value={w.note ?? ''}
         onChange={(e) => actions.updateActive((x) => ({ ...x, note: e.target.value }))}
+        aria-label="Workout notes"
       />
 
-      <button className="btn danger-text block" onClick={cancel}>
+      <Button variant="ghost" className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={cancel}>
         Discard workout
-      </button>
+      </Button>
 
       {picking && (
         <ExercisePicker
@@ -156,6 +164,13 @@ function parseNum(v: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** Set table columns: set no · previous · kg · reps · ✓ (narrower on tiny phones). */
+const GRID =
+  'grid grid-cols-[1.75rem_minmax(0,1fr)_3.75rem_3rem_2.75rem] items-center gap-1.5 min-[360px]:grid-cols-[2rem_minmax(0,1fr)_4.5rem_3.5rem_2.75rem] min-[360px]:gap-2';
+
+const NUM_INPUT =
+  'h-11 rounded-md bg-background px-1 text-center text-base font-semibold tabular placeholder:font-normal placeholder:text-muted-foreground/70 md:text-base';
+
 /** Text input that keeps the raw draft while typing (so "62." isn't lost). */
 function NumInput({
   value,
@@ -167,7 +182,7 @@ function NumInput({
 >) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
-    <input
+    <Input
       {...rest}
       type="text"
       enterKeyHint="next"
@@ -255,78 +270,104 @@ function ExerciseCard({
   const allDone = we.sets.length > 0 && we.sets.every((x) => x.done);
 
   return (
-    <section className={`card ex-card ${allDone ? 'complete' : ''}`}>
-      <div className="ex-head">
-        <button className="ex-title" onClick={onHistory}>
-          <h3>{ex.name}</h3>
-          <span className="muted small">
+    <Card size="sm" className={cn('gap-3 px-3 sm:px-4', allDone && 'ring-success/40')}>
+      <div className="flex items-start gap-1.5">
+        <Button
+          variant="ghost"
+          className="-ml-1 h-auto min-w-0 flex-1 flex-col items-start gap-0 rounded-md px-1 py-0.5 text-left font-normal whitespace-normal hover:bg-muted/60"
+          onClick={onHistory}
+        >
+          <h3 className="w-full truncate text-base font-semibold text-brand">{ex.name}</h3>
+          <span className="block w-full truncate text-xs text-muted-foreground">
             {ex.muscle} · goal {repLabel(we)} reps · tap for history
           </span>
-        </button>
+        </Button>
         {ex.equipment === 'Barbell' && (
-          <button className="btn small soft" onClick={() => setPlates(true)} title="Which plates to load">
+          <Button variant="secondary" size="sm" onClick={() => setPlates(true)} title="Which plates to load">
             Plates
-          </button>
+          </Button>
         )}
-        <button className="icon-btn" onClick={onOptions} aria-label="Exercise options">
-          ⋯
-        </button>
+        <Button variant="ghost" size="icon-sm" className="-mr-1 text-muted-foreground" onClick={onOptions} aria-label="Exercise options">
+          <Ellipsis />
+        </Button>
       </div>
 
-      {ex.note && <p className="ex-note">📌 {ex.note}</p>}
+      {ex.note && <p className="rounded-md bg-muted px-2.5 py-1.5 text-xs">📌 {ex.note}</p>}
 
       {last ? (
-        <div className="last-time">
-          <span className="muted small">Last time · {formatDate(last.date)}</span>
-          <div className="last-sets">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">Last time · {formatDate(last.date)}</span>
+          <div className="flex flex-wrap gap-1">
             {last.sets.map((x) => (
-              <span key={x.id} className={`pill ${x.warmup ? 'warm' : ''}`}>
+              <Badge
+                key={x.id}
+                variant={x.warmup ? 'secondary' : 'outline'}
+                className={cn('font-medium tabular', x.warmup && 'text-muted-foreground')}
+              >
                 {x.warmup && 'W '}
                 {formatKg(x.weight ?? 0)}×{x.reps}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
       ) : (
-        <p className="muted small first-time">First time — pick a weight you can lift for {repLabel(we)} reps.</p>
+        <p className="text-xs text-muted-foreground">First time — pick a weight you can lift for {repLabel(we)} reps.</p>
       )}
 
       {target && (
-        <div className={`target ${target.kind}`}>
-          <span>{target.kind === 'increase' ? '⬆️' : '🎯'}</span>
-          <span className="grow">{target.message}</span>
-          <button className="btn small" onClick={fillTargets}>
+        <div
+          className={cn(
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm',
+            target.kind === 'increase' ? 'bg-success-soft text-success' : 'bg-accent text-accent-foreground',
+          )}
+        >
+          <span aria-hidden>{target.kind === 'increase' ? '⬆️' : '🎯'}</span>
+          <span className="min-w-0 flex-1 font-medium">{target.message}</span>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={fillTargets}>
             Fill
-          </button>
+          </Button>
         </div>
       )}
 
-      <div className="set-table" role="table">
-        <div className="set-row head" role="row">
-          <span>Set</span>
+      <div className="flex flex-col gap-1" role="table">
+        <div
+          className={cn(GRID, 'px-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase')}
+          role="row"
+        >
+          <span className="text-center">Set</span>
           <span>Previous</span>
-          <span>{unitLabel()}</span>
-          <span>Reps</span>
+          <span className="text-center">{unitLabel()}</span>
+          <span className="text-center">Reps</span>
           <span aria-label="Done" />
         </div>
         {rows.map(({ set, kindIndex, prev, hint }) => {
           const cmp = compareSet(set, prev);
           return (
-            <div key={set.id} className={`set-row ${set.done ? 'done' : ''} ${set.warmup ? 'warm' : ''}`} role="row">
-              <button
-                className="set-no"
+            <div
+              key={set.id}
+              className={cn(GRID, 'rounded-lg px-1 py-1 transition-colors', set.done && 'bg-success-soft')}
+              role="row"
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                className={cn(
+                  'h-9 w-full px-0 text-xs font-semibold tabular',
+                  set.warmup && 'bg-warning-soft text-warning hover:bg-warning-soft',
+                )}
                 title="Tap to mark as warm-up"
+                aria-label={set.warmup ? 'Warm-up set — tap to make it a working set' : `Set ${kindIndex + 1} — tap to mark as warm-up`}
                 onClick={() => updateSet(we.id, set.id, { warmup: !set.warmup })}
               >
                 {set.warmup ? 'W' : kindIndex + 1}
-              </button>
-              <span className="prev">
+              </Button>
+              <span className="truncate text-xs text-muted-foreground tabular">
                 {prev ? `${formatKg(prev.weight ?? 0)}×${prev.reps}` : '—'}
-                {cmp === 'up' && <b className="up">▲</b>}
-                {cmp === 'down' && <b className="down">▼</b>}
+                {cmp === 'up' && <b className="ml-0.5 text-success">▲</b>}
+                {cmp === 'down' && <b className="ml-0.5 text-destructive">▼</b>}
               </span>
               <NumInput
-                className="num"
+                className={NUM_INPUT}
                 inputMode="decimal"
                 placeholder={hint ? formatKg(hint.weight) : '0'}
                 value={set.weight}
@@ -334,39 +375,47 @@ function ExerciseCard({
                 aria-label="Weight"
               />
               <NumInput
-                className={`num ${needInput === set.id ? 'need' : ''}`}
+                className={cn(NUM_INPUT, needInput === set.id && 'animate-shake border-destructive ring-3 ring-destructive/20')}
                 inputMode="numeric"
                 placeholder={hint ? String(hint.reps) : '0'}
                 value={set.reps}
                 onValue={(n) => updateSet(we.id, set.id, { reps: n == null ? null : Math.round(n), done: false })}
                 aria-label="Reps"
               />
-              <button
-                className={`check ${set.done ? 'on' : ''}`}
+              <Button
+                variant="outline"
+                size="icon-lg"
+                className={cn(
+                  'size-11 rounded-md bg-muted text-muted-foreground active:scale-95',
+                  set.done && 'border-transparent bg-success text-white hover:bg-success/90 hover:text-white dark:bg-success dark:hover:bg-success/90',
+                )}
                 onClick={() => toggleDone(set, hint)}
                 aria-label={set.done ? 'Mark set not done' : 'Mark set done'}
+                aria-pressed={set.done}
               >
-                <CheckIcon />
-              </button>
+                <Check className="size-5" strokeWidth={set.done ? 3 : 2.25} />
+              </Button>
             </div>
           );
         })}
       </div>
 
-      <div className="row gap">
-        <button
-          className="btn small grow"
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="h-9 flex-1"
           onClick={() => updateExercise(we.id, (e) => ({ ...e, sets: [...e.sets, newSet()] }))}
         >
-          <PlusIcon size={16} /> Add set
-        </button>
-        <button
-          className="btn small"
+          <Plus /> Add set
+        </Button>
+        <Button
+          variant="outline"
+          className="h-9"
           disabled={we.sets.length <= 1}
           onClick={() => updateExercise(we.id, (e) => ({ ...e, sets: e.sets.slice(0, -1) }))}
         >
-          − Remove set
-        </button>
+          <Minus /> Remove set
+        </Button>
       </div>
       {plates && (
         <PlateCalculator
@@ -377,7 +426,7 @@ function ExerciseCard({
           onClose={() => setPlates(false)}
         />
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -412,15 +461,17 @@ function ExerciseOptions({
 
   return (
     <Modal title={ex.name} onClose={onClose}>
-      <div className="field">
-        <span>Goal reps per set (when every set hits this, the app tells you to add weight)</span>
+      <Field>
+        <FieldTitle>Goal reps per set</FieldTitle>
+        <FieldDescription className="text-xs">When every set hits this, the app tells you to add weight.</FieldDescription>
         <Stepper value={we.repMax} onChange={setReps} label="reps" />
-      </div>
+      </Field>
 
-      <label className="field">
-        <span>Sticky note for this exercise</span>
-        <input
-          className="input"
+      <Field>
+        <FieldLabel htmlFor={`note-${ex.id}`}>Sticky note for this exercise</FieldLabel>
+        <Input
+          id={`note-${ex.id}`}
+          className="h-10"
           placeholder="e.g. seat height 4, grip width…"
           value={note}
           onChange={(e) => {
@@ -428,25 +479,26 @@ function ExerciseOptions({
             actions.updateExercise(ex.id, { note: e.target.value.trim() || undefined });
           }}
         />
-      </label>
+      </Field>
 
-      <div className="row gap">
-        <button className="btn grow" disabled={idx === 0} onClick={() => move(-1)}>
-          ↑ Move up
-        </button>
-        <button className="btn grow" disabled={idx === workout.exercises.length - 1} onClick={() => move(1)}>
-          ↓ Move down
-        </button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" className="h-10" disabled={idx === 0} onClick={() => move(-1)}>
+          <ArrowUp /> Move up
+        </Button>
+        <Button variant="outline" className="h-10" disabled={idx === workout.exercises.length - 1} onClick={() => move(1)}>
+          <ArrowDown /> Move down
+        </Button>
       </div>
-      <button
-        className="btn danger-text block"
+      <Button
+        variant="ghost"
+        className="h-10 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={() => {
           actions.updateActive((w) => ({ ...w, exercises: w.exercises.filter((e) => e.id !== we.id) }));
           onClose();
         }}
       >
         Remove from this workout
-      </button>
+      </Button>
     </Modal>
   );
 }

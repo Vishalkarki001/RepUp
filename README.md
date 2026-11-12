@@ -1,6 +1,6 @@
 # RepUp — Gym Workout Tracker
 
-A fast, mobile-first workout logger (Next.js 16 + React 19, installable PWA, works offline).
+A fast, mobile-first workout logger (Next.js 16 + React 19, Tailwind CSS v4 + shadcn/ui, installable PWA, works offline).
 
 **Main idea:** you log each exercise (weight × reps for every set). The next time you do the
 same exercise, the app shows **what you lifted last time** next to every set and gives you a
@@ -51,7 +51,8 @@ deploy it (e.g. Vercel). Over plain `http://<ip>:3000`, the app works but doesn'
 
 ```
 src/app/            layout, page, manifest.ts (PWA), globals.css
-src/components/     App shell, tab screens (screens/*), shared UI
+src/components/     App shell, tab screens (screens/*), Modal/Confirm, common.tsx (Stat, EmptyState…)
+src/components/ui/  shadcn/ui components (Radix, Tailwind v4) — add more with `npx shadcn@latest add <name>`
 src/lib/types.ts    data model (one interface per future DB table: exercises, plans, workouts, body weights)
 src/lib/store.ts    state + actions, persisted to localStorage
 src/lib/progression.ts  progression targets + set comparison

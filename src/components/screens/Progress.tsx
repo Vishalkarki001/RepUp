@@ -1,10 +1,19 @@
+'use client';
+
 import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Item, ItemActions, ItemContent, ItemGroup } from '@/components/ui/item';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { actions, exerciseMap, useAppState } from '@/lib/store';
 import { MUSCLES, type Muscle } from '@/lib/types';
 import { formatDate, formatKg, formatVolume, formatW, startOfWeek, todayISO, unitLabel, workoutVolume } from '@/lib/utils';
 import { BarChart, LineChart } from '../Charts';
-import { XIcon } from '../Icons';
+import { EmptyState, Stat, StatGrid } from '../common';
 import { ScreenHeader } from '../ScreenHeader';
 import { ExerciseStats } from './ExerciseHistory';
 
@@ -58,92 +67,92 @@ export function ProgressScreen() {
   const maxSets = Math.max(SET_GOAL * 1.6, ...muscleSets.map(([, n]) => n));
 
   return (
-    <div className="screen wide">
+    <div className="flex flex-col gap-5">
       <ScreenHeader eyebrow="See how you’re improving" title="Progress" />
 
-      <div className="stats four">
-        <div className="stat">
-          <strong>{s.workouts.length}</strong>
-          <span>workouts in total</span>
-        </div>
-        <div className="stat">
-          <strong>{thisMonth}</strong>
-          <span>this month</span>
-        </div>
-        <div className="stat">
-          <strong>{formatVolume(totalVolume)}</strong>
-          <span>lifted in total</span>
-        </div>
-        <div className="stat">
-          <strong>{formatKg(avgPerWeek)}</strong>
-          <span>workouts / week (avg)</span>
-        </div>
-      </div>
+      <StatGrid cols={4}>
+        <Stat value={s.workouts.length} label="workouts in total" />
+        <Stat value={thisMonth} label="this month" />
+        <Stat value={formatVolume(totalVolume)} label="lifted in total" />
+        <Stat value={formatKg(avgPerWeek)} label="workouts / week (avg)" />
+      </StatGrid>
 
       {!s.workouts.length && (
-        <div className="card empty-plan">
-          <div className="empty-emoji" aria-hidden>
-            📈
-          </div>
-          <h2>Your charts will appear here</h2>
-          <p className="muted">Finish your first workout and come back to see your progress.</p>
-        </div>
+        <EmptyState emoji="📈" title="Your charts will appear here">
+          Finish your first workout and come back to see your progress.
+        </EmptyState>
       )}
 
-      <div className="progress-grid">
+      <div className="grid gap-4 xl:grid-cols-2">
         {logged.length > 0 && (
-          <section className="card span-2">
-            <div className="card-head">
-              <h2 className="card-title">Exercise progress</h2>
-              <select className="input compact" value={exerciseId} onChange={(e) => setSelected(e.target.value)} aria-label="Exercise">
-                {logged.map(([id, n]) => (
-                  <option key={id} value={id}>
-                    {exMap.get(id)?.name} ({n}×)
-                  </option>
-                ))}
-              </select>
-            </div>
-            {exerciseId && <ExerciseStats key={exerciseId} exerciseId={exerciseId} />}
-          </section>
-        )}
-
-        {s.workouts.length > 0 && (
-          <section className="card">
-            <div className="card-head">
-              <h2 className="card-title">Workouts per week</h2>
-            </div>
-            <BarChart points={weekly} label="Workouts per week, last 8 weeks" />
-          </section>
-        )}
-
-        {s.workouts.length > 0 && (
-          <section className="card">
-            <div className="card-head">
-              <h2 className="card-title">Sets per muscle · this week</h2>
-            </div>
-            {muscleSets.length ? (
-              <>
-                <ul className="hbars">
-                  {muscleSets.map(([m, n]) => (
-                    <li key={m}>
-                      <span>{m}</span>
-                      <div className="hbar" role="img" aria-label={`${m}: ${n} sets`}>
-                        <i style={{ width: `${(n / maxSets) * 100}%` }} />
-                        <b className="hbar-goal" style={{ left: `${(SET_GOAL / maxSets) * 100}%` }} />
-                      </div>
-                      <strong>
-                        {n}
-                        {n >= SET_GOAL && <span className="goal-ok"> ✓</span>}
-                      </strong>
-                    </li>
+          <Card className="xl:col-span-2">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+              <CardTitle>Exercise progress</CardTitle>
+              <Select value={exerciseId} onValueChange={setSelected}>
+                <SelectTrigger size="sm" className="max-w-full min-w-0 sm:max-w-72" aria-label="Exercise">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {logged.map(([id, n]) => (
+                    <SelectItem key={id} value={id}>
+                      {exMap.get(id)?.name} ({n}×)
+                    </SelectItem>
                   ))}
-                </ul>
-                <p className="muted small">Dashed line = {SET_GOAL} sets a week, a good target for each muscle. ✓ = reached.</p>
-              </>
-            ) : (
-              <p className="muted">No sets logged yet this week.</p>
-            )}
-          </section>
+                </SelectContent>
+              </Select>
+            </CardHeader>
+            <CardContent>{exerciseId && <ExerciseStats key={exerciseId} exerciseId={exerciseId} />}</CardContent>
+          </Card>
+        )}
+
+        {s.workouts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Workouts per week</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarChart points={weekly} label="Workouts per week, last 8 weeks" />
+            </CardContent>
+          </Card>
+        )}
+
+        {s.workouts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Sets per muscle · this week</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {muscleSets.length ? (
+                <>
+                  <ul className="flex flex-col gap-3">
+                    {muscleSets.map(([m, n]) => (
+                      <li key={m} className="grid grid-cols-[5.5rem_1fr_2.75rem] items-center gap-3 text-sm">
+                        <span className="truncate text-muted-foreground">{m}</span>
+                        <div className="relative">
+                          <Progress value={(n / maxSets) * 100} className="h-2.5" aria-label={`${m}: ${n} sets this week`} />
+                          {/* goal marker */}
+                          <div
+                            aria-hidden
+                            className="pointer-events-none absolute -inset-y-1 border-l-2 border-dashed border-muted-foreground"
+                            style={{ left: `${(SET_GOAL / maxSets) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-right font-semibold tabular">
+                          {n}
+                          {n >= SET_GOAL && <span className="text-success"> ✓</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground">
+                    Dashed line = {SET_GOAL} sets a week, a good target for each muscle. ✓ = reached.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No sets logged yet this week.</p>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         <BodyWeightCard />
@@ -181,50 +190,71 @@ function BodyWeightCard() {
   const change = bodyWeights.length > 1 ? bodyWeights[0].kg - bodyWeights[bodyWeights.length - 1].kg : 0;
 
   return (
-    <section className="card">
-      <div className="card-head">
-        <h2 className="card-title">Body weight</h2>
+    <Card>
+      <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
+        <CardTitle>Body weight</CardTitle>
         {bodyWeights.length > 0 && (
-          <span className="muted small">
-            Now <strong className="text">{formatW(bodyWeights[0].kg)}</strong>
+          <span className="text-xs text-muted-foreground">
+            Now <strong className="font-semibold text-foreground tabular">{formatW(bodyWeights[0].kg)}</strong>
             {change !== 0 && ` (${change > 0 ? '+' : ''}${formatW(change)})`}
           </span>
         )}
-      </div>
-      <div className="bw-form">
-        <input
-          className="input"
-          inputMode="decimal"
-          placeholder={`Weight in ${unitLabel()}`}
-          value={kg}
-          onChange={(e) => setKg(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          aria-label="Body weight"
-        />
-        <input className="input" type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
-        <button className="btn primary" onClick={add}>
-          Save
-        </button>
-      </div>
-      {points.length > 1 && <LineChart points={points} fmt={formatW} label="Body weight over time" height={180} />}
-      {bodyWeights.length > 0 && (
-        <ul className="bw-list">
-          {bodyWeights.slice(0, showAll ? undefined : 4).map((b) => (
-            <li key={b.id}>
-              <span>{formatDate(b.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-              <strong>{formatW(b.kg)}</strong>
-              <button className="icon-btn sm" onClick={() => actions.deleteBodyWeight(b.id)} aria-label="Delete entry">
-                <XIcon size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {bodyWeights.length > 4 && (
-        <button className="btn ghost small" onClick={() => setShowAll((v) => !v)}>
-          {showAll ? 'Show less' : `Show all ${bodyWeights.length}`}
-        </button>
-      )}
-    </section>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <Input
+            className="col-span-2 h-9 sm:col-span-1"
+            inputMode="decimal"
+            placeholder={`Weight in ${unitLabel()}`}
+            value={kg}
+            onChange={(e) => setKg(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            aria-label="Body weight"
+          />
+          <Input
+            className="h-9 min-w-0"
+            type="date"
+            value={date}
+            max={todayISO()}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Date"
+          />
+          <Button className="h-9" onClick={add}>
+            Save
+          </Button>
+        </div>
+        {points.length > 1 && <LineChart points={points} fmt={formatW} label="Body weight over time" height={180} />}
+        {bodyWeights.length > 0 && (
+          <ItemGroup className="gap-0 divide-y rounded-lg border">
+            {bodyWeights.slice(0, showAll ? undefined : 4).map((b) => (
+              <Item key={b.id} role="listitem" size="xs" className="flex-nowrap rounded-none px-3">
+                <ItemContent className="min-w-0">
+                  <span className="truncate text-sm text-muted-foreground">
+                    {formatDate(b.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </ItemContent>
+                <ItemActions className="gap-1">
+                  <span className="text-sm font-semibold tabular">{formatW(b.kg)}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => actions.deleteBodyWeight(b.id)}
+                    aria-label="Delete entry"
+                  >
+                    <X />
+                  </Button>
+                </ItemActions>
+              </Item>
+            ))}
+          </ItemGroup>
+        )}
+        {bodyWeights.length > 4 && (
+          <Button variant="ghost" size="sm" className="self-center text-muted-foreground" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? 'Show less' : `Show all ${bodyWeights.length}`}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }

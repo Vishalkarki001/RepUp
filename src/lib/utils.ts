@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { SetEntry, WeightUnit, Workout } from './types';
 
+/** shadcn/ui class-name helper (clsx + tailwind-merge in one). */
+export { cn } from 'cn';
+
 export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }

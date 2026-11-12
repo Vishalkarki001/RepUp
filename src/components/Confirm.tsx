@@ -1,5 +1,16 @@
+'use client';
+
 import { useSyncExternalStore } from 'react';
-import { Modal } from './Modal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 /**
  * In-app replacement for window.confirm():
@@ -44,25 +55,27 @@ export function ConfirmHost() {
     () => current,
     () => null,
   );
-  if (!req) return null;
 
   return (
-    <Modal
-      title={req.title}
-      onClose={() => settle(false)}
-      className="confirm"
-      footer={
-        <div className="row gap">
-          <button className="btn grow" onClick={() => settle(false)}>
-            {req.cancelLabel ?? 'Cancel'}
-          </button>
-          <button className={`btn grow ${req.danger ? 'danger' : 'primary'}`} onClick={() => settle(true)} autoFocus>
-            {req.confirmLabel ?? 'OK'}
-          </button>
-        </div>
-      }
-    >
-      {req.message && <p className="muted">{req.message}</p>}
-    </Modal>
+    <AlertDialog open={!!req} onOpenChange={(open) => !open && settle(false)}>
+      {req && (
+        <AlertDialogContent data-confirm>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{req.title}</AlertDialogTitle>
+            {req.message ? (
+              <AlertDialogDescription>{req.message}</AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription className="sr-only">{req.title}</AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => settle(false)}>{req.cancelLabel ?? 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction variant={req.danger ? 'destructive' : 'default'} onClick={() => settle(true)}>
+              {req.confirmLabel ?? 'OK'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      )}
+    </AlertDialog>
   );
 }

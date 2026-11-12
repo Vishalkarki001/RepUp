@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Item, ItemActions, ItemContent, ItemFooter, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { actions, exerciseMap, planForDay, useAppState } from '@/lib/store';
 import { unitLabel } from '@/lib/utils';
 import { WEEKDAYS, WEEKDAYS_LONG, type PlanItem } from '@/lib/types';
+import { NumBadge, SectionTitle } from '../common';
 import { ExercisePicker } from '../ExercisePicker';
-import { DownIcon, PlusIcon, UpIcon, XIcon } from '../Icons';
 import { Modal } from '../Modal';
 import { NumberField } from '../NumberField';
 
@@ -13,6 +18,7 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 /** Edit what to train on one weekday: a name + exercises with sets × reps. */
 export function DayPlanEditor({ day, onClose }: { day: number; onClose: () => void }) {
   const s = useAppState();
+  const nameId = useId();
   const exMap = useMemo(() => exerciseMap(s), [s]);
   const existing = planForDay(s, day);
   const [name, setName] = useState(existing?.name ?? '');
@@ -61,84 +67,103 @@ export function DayPlanEditor({ day, onClose }: { day: number; onClose: () => vo
       title={`${WEEKDAYS_LONG[day]}'s workout`}
       onClose={onClose}
       footer={
-        <div className="row gap">
+        <div className="flex items-center gap-2">
           {existing && (
-            <button className="btn danger-text" onClick={makeRestDay}>
+            <Button variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={makeRestDay}>
               Rest day
-            </button>
+            </Button>
           )}
-          <button className="btn primary grow" onClick={save} disabled={!items.length}>
+          <Button size="lg" className="h-11 flex-1 text-base" onClick={save} disabled={!items.length}>
             {items.length ? 'Save' : 'Add an exercise first'}
-          </button>
+          </Button>
         </div>
       }
     >
-      <label className="field">
-        <span>Workout name</span>
-        <input
-          className="input"
+      <Field className="gap-1.5">
+        <FieldLabel htmlFor={nameId}>Workout name</FieldLabel>
+        <Input
+          id={nameId}
+          className="h-10"
           placeholder="e.g. Chest day, Legs, Push"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
         />
-      </label>
+      </Field>
 
-      <div className="field">
-        <span>Exercises</span>
-        {items.length === 0 && <p className="muted small">No exercises yet. Tap “Add exercise” below.</p>}
-        {items.map((it, i) => (
-          <div key={it.exerciseId + i} className="plan-item">
-            <div className="row gap">
-              <span className="num-badge">{i + 1}</span>
-              <strong className="grow">{exMap.get(it.exerciseId)?.name ?? 'Deleted exercise'}</strong>
-              <button className="icon-btn sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">
-                <UpIcon />
-              </button>
-              <button className="icon-btn sm" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down">
-                <DownIcon />
-              </button>
-              <button className="icon-btn sm" onClick={() => setItems((l) => l.filter((_, j) => j !== i))} aria-label="Remove">
-                <XIcon size={16} />
-              </button>
-            </div>
-            <div className="plan-fields">
-              <NumberField label="Sets" value={it.sets || null} onValue={(n) => patch(i, { sets: Math.min(20, n ?? 0) })} />
-              <NumberField label="Reps" value={it.reps || null} onValue={(n) => patch(i, { reps: Math.min(999, n ?? 0) })} />
-              <NumberField
-                label={unitLabel() === 'kg' ? 'Kg' : 'Lb'}
-                decimal
-                placeholder="—"
-                value={it.weight ?? null}
-                onValue={(n) => patch(i, { weight: n })}
-              />
-            </div>
-          </div>
-        ))}
-        <button className="btn soft block lg add-ex" onClick={() => setPicking(true)}>
-          <PlusIcon /> Add exercise
-        </button>
-        {items.length > 0 && <p className="muted small">Weight is optional — leave it empty if you’re not sure yet.</p>}
-      </div>
+      <section className="flex flex-col gap-2">
+        <SectionTitle>Exercises</SectionTitle>
+        {items.length === 0 && <p className="text-sm text-muted-foreground">No exercises yet. Tap “Add exercise” below.</p>}
+        {items.length > 0 && (
+          <ItemGroup className="gap-2">
+            {items.map((it, i) => (
+              <Item key={it.exerciseId + i} role="listitem" variant="outline" size="sm" className="gap-x-2 gap-y-2.5 bg-card p-3">
+                <ItemMedia>
+                  <NumBadge>{i + 1}</NumBadge>
+                </ItemMedia>
+                <ItemContent className="min-w-0">
+                  <ItemTitle className="w-full truncate">{exMap.get(it.exerciseId)?.name ?? 'Deleted exercise'}</ItemTitle>
+                </ItemContent>
+                <ItemActions className="-mr-1 gap-0">
+                  <Button variant="ghost" size="icon-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">
+                    <ChevronUp />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Move down">
+                    <ChevronDown />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => setItems((l) => l.filter((_, j) => j !== i))}
+                    aria-label="Remove"
+                  >
+                    <X />
+                  </Button>
+                </ItemActions>
+                <ItemFooter className="grid grid-cols-3 gap-2">
+                  <NumberField label="Sets" value={it.sets || null} onValue={(n) => patch(i, { sets: Math.min(20, n ?? 0) })} />
+                  <NumberField label="Reps" value={it.reps || null} onValue={(n) => patch(i, { reps: Math.min(999, n ?? 0) })} />
+                  <NumberField
+                    label={unitLabel() === 'kg' ? 'Kg' : 'Lb'}
+                    decimal
+                    placeholder="—"
+                    value={it.weight ?? null}
+                    onValue={(n) => patch(i, { weight: n })}
+                  />
+                </ItemFooter>
+              </Item>
+            ))}
+          </ItemGroup>
+        )}
+        <Button variant="outline" className="h-11 w-full border-dashed" onClick={() => setPicking(true)}>
+          <Plus /> Add exercise
+        </Button>
+        {items.length > 0 && <p className="text-xs text-muted-foreground">Weight is optional — leave it empty if you’re not sure yet.</p>}
+      </section>
 
       {items.length === 0 && otherDays.length > 0 && (
-        <div className="field">
-          <span>Or copy another day</span>
-          <div className="chips wrap">
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Or copy another day</SectionTitle>
+          <div className="flex flex-wrap gap-2">
             {otherDays.map((p) => (
-              <button
+              <Button
                 key={p.day}
-                className="chip"
+                variant="secondary"
+                size="sm"
+                className="h-8 max-w-full"
                 onClick={() => {
                   setName(p.name);
                   setItems(p.items.map((x) => ({ ...x })));
                 }}
               >
-                {WEEKDAYS[p.day]} · {p.name}
-              </button>
+                <span className="truncate">
+                  <span className="font-semibold">{WEEKDAYS[p.day]}</span> · {p.name}
+                </span>
+              </Button>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {picking && (

@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 /** Labelled number box. Keeps the raw text while typing so "62." is not lost. */
 export function NumberField({
@@ -17,12 +20,16 @@ export function NumberField({
   /** Visually hide the label (still read by screen readers), e.g. on repeated rows. */
   hideLabel?: boolean;
 }) {
+  const id = useId();
   const [draft, setDraft] = useState<string | null>(null);
   return (
-    <label className="num-field">
-      <small className={hideLabel ? 'sr-only' : undefined}>{label}</small>
-      <input
-        className="input"
+    <Field className="min-w-0 gap-1">
+      <FieldLabel htmlFor={id} className={cn('text-xs font-normal text-muted-foreground', hideLabel && 'sr-only')}>
+        {label}
+      </FieldLabel>
+      <Input
+        id={id}
+        className="h-10 text-center text-base font-semibold tabular"
         type="text"
         inputMode={decimal ? 'decimal' : 'numeric'}
         autoComplete="off"
@@ -37,6 +44,6 @@ export function NumberField({
         }}
         onBlur={() => setDraft(null)}
       />
-    </label>
+    </Field>
   );
 }

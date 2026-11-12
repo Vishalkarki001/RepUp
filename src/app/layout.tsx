@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Geist } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'RepUp — Gym Workout Tracker',
@@ -12,10 +12,10 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   icons: {
     icon: [
-      { url: '/favicon-48.png', sizes: '48x48', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon-48.png?v=2', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-192.png?v=2', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/apple-icon.png?v=2',
   },
 };
 
@@ -35,7 +35,7 @@ const themeScript = `(function(){try{var p=localStorage.getItem('gym-theme');var
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`font-sans ${geist.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

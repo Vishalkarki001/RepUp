@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react';
+import { Check, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { actions, useAppState } from '@/lib/store';
 import { MUSCLES, type Muscle } from '@/lib/types';
-import { CheckIcon, PlusIcon, SearchIcon } from './Icons';
+import { cn } from '@/lib/utils';
 import { Modal } from './Modal';
 
 interface Props {
@@ -43,75 +48,108 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
       title={title}
       onClose={onClose}
       footer={
-        <button className="btn primary block lg" disabled={!selected.length} onClick={() => onPick(selected)}>
+        <Button size="lg" className="h-11 w-full text-base" disabled={!selected.length} onClick={() => onPick(selected)}>
           {selected.length ? `Add ${selected.length} exercise${selected.length > 1 ? 's' : ''}` : 'Tap exercises to select'}
-        </button>
+        </Button>
       }
     >
-      <div className="search">
-        <SearchIcon />
-        <input
-          className="input"
+      <InputGroup className="h-10">
+        <InputGroupAddon>
+          <Search aria-hidden />
+        </InputGroupAddon>
+        <InputGroupInput
           placeholder="Search or type a new exercise"
+          aria-label="Search exercises"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !list.length && createNew()}
           enterKeyHint="search"
           autoFocus
         />
-      </div>
+      </InputGroup>
 
       {q && !exact && (
-        <div className="create-box">
-          <div className="grow">
-            <small className="muted">{list.length ? 'Not the one?' : 'Not in the list'}</small>
-            <strong>Add “{q}” as new</strong>
-          </div>
-          {muscle === 'All' && (
-            <select
-              className="input compact"
-              value={newMuscle}
-              onChange={(e) => setNewMuscle(e.target.value as Muscle)}
-              aria-label="Muscle group"
-            >
-              {MUSCLES.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          )}
-          <button className="btn primary small" onClick={createNew}>
-            <PlusIcon size={16} /> Add
-          </button>
-        </div>
+        <Item variant="outline" size="sm" className="border-dashed border-primary/40 bg-accent text-accent-foreground">
+          <ItemContent className="min-w-0 gap-0.5">
+            <ItemDescription className="text-xs text-accent-foreground/75">{list.length ? 'Not the one?' : 'Not in the list'}</ItemDescription>
+            <ItemTitle className="w-full truncate font-semibold">Add “{q}” as new</ItemTitle>
+          </ItemContent>
+          <ItemActions>
+            {muscle === 'All' && (
+              <Select value={newMuscle} onValueChange={(v) => setNewMuscle(v as Muscle)}>
+                <SelectTrigger className="bg-background data-[size=default]:h-9" aria-label="Muscle group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MUSCLES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button className="h-9" onClick={createNew}>
+              <Plus /> Add
+            </Button>
+          </ItemActions>
+        </Item>
       )}
 
-      <div className="chips">
+      <div className="-mx-4 flex shrink-0 gap-2 overflow-x-auto px-4 no-scrollbar sm:-mx-5 sm:px-5" role="group" aria-label="Filter by muscle">
         {(['All', ...MUSCLES] as const).map((m) => (
-          <button key={m} className={`chip ${muscle === m ? 'on' : ''}`} onClick={() => setMuscle(m)}>
+          <Button
+            key={m}
+            size="sm"
+            variant={muscle === m ? 'default' : 'outline'}
+            className="h-8 shrink-0 rounded-full px-3"
+            aria-pressed={muscle === m}
+            onClick={() => setMuscle(m)}
+          >
             {m}
-          </button>
+          </Button>
         ))}
       </div>
 
-      <ul className="pick-list">
+      <ItemGroup className="gap-1.5">
         {list.map((e) => {
-          const order = selected.indexOf(e.id);
+          const on = selected.includes(e.id);
           return (
-            <li key={e.id}>
-              <button className={`pick-item ${order >= 0 ? 'on' : ''}`} onClick={() => toggle(e.id)} aria-pressed={order >= 0}>
-                <span className="grow">
-                  <strong>{e.name}</strong>
-                  <small>
-                    {e.muscle}
-                    {e.custom ? ' · yours' : ''}
-                  </small>
-                </span>
-                <span className="pick-badge">{order >= 0 ? <CheckIcon size={14} /> : <PlusIcon size={14} />}</span>
-              </button>
-            </li>
+            <div key={e.id} role="listitem">
+              <Item
+                asChild
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'min-h-12 cursor-pointer flex-nowrap bg-card py-2 text-left hover:bg-muted',
+                  on && 'border-primary bg-accent hover:bg-accent',
+                )}
+              >
+                <button type="button" onClick={() => toggle(e.id)} aria-pressed={on}>
+                  <ItemContent className="min-w-0 gap-0.5">
+                    <ItemTitle className="w-full truncate">{e.name}</ItemTitle>
+                    <ItemDescription className="text-xs">
+                      {e.muscle}
+                      {e.custom ? ' · yours' : ''}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <span
+                      className={cn(
+                        'grid size-6 shrink-0 place-items-center rounded-full border text-muted-foreground',
+                        on && 'border-primary bg-primary text-primary-foreground',
+                      )}
+                      aria-hidden
+                    >
+                      {on ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
+                    </span>
+                  </ItemActions>
+                </button>
+              </Item>
+            </div>
           );
         })}
-      </ul>
+      </ItemGroup>
     </Modal>
   );
 }

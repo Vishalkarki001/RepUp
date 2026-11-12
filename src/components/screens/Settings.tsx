@@ -1,5 +1,11 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
+import { Download, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { actions, useAppState } from '@/lib/store';
 import { setThemePref, useTheme, type ThemePref } from '@/lib/theme';
 import { todayISO } from '@/lib/utils';
@@ -13,10 +19,13 @@ const THEMES: { id: ThemePref; label: string }[] = [
   { id: 'system', label: 'Auto' },
 ];
 
+const restLabel = (s: number) => (s === 0 ? 'Off' : s < 60 ? `${s} sec` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} min`);
+
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { settings, workouts } = useAppState();
   const { pref } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
+  const restId = useId();
 
   const exportData = () => {
     const blob = new Blob([actions.exportJSON()], { type: 'application/json' });
@@ -44,87 +53,118 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title="Settings" onClose={onClose}>
-      <div className="field">
-        <span>Theme</span>
-        <div className="segmented" role="radiogroup" aria-label="Theme">
-          {THEMES.map((t) => (
-            <button key={t.id} role="radio" aria-checked={pref === t.id} className={pref === t.id ? 'on' : ''} onClick={() => setThemePref(t.id)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <p className="muted small">Auto follows your phone&apos;s setting.</p>
-      </div>
+      <FieldGroup className="gap-6">
+        <FieldSet className="gap-2">
+          <FieldLegend variant="label" className="mb-0">
+            Theme
+          </FieldLegend>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={0}
+            className="w-full"
+            aria-label="Theme"
+            value={pref}
+            onValueChange={(v) => v && setThemePref(v as ThemePref)}
+          >
+            {THEMES.map((t) => (
+              <ToggleGroupItem key={t.id} value={t.id} className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
+                {t.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <FieldDescription className="text-xs">Auto follows your phone&apos;s setting.</FieldDescription>
+        </FieldSet>
 
-      <div className="field">
-        <span>Weight unit</span>
-        <div className="segmented" role="radiogroup" aria-label="Weight unit">
-          {(['kg', 'lb'] as const).map((u) => (
-            <button
-              key={u}
-              role="radio"
-              aria-checked={settings.unit === u}
-              className={settings.unit === u ? 'on' : ''}
-              onClick={() => {
-                actions.updateSettings({ unit: u });
-                toast.success(`Weights now shown in ${u}`);
-              }}
-            >
-              {u === 'kg' ? 'Kilograms (kg)' : 'Pounds (lb)'}
-            </button>
-          ))}
-        </div>
-        <p className="muted small">Pick once. Switching later does not convert numbers you already saved.</p>
-      </div>
+        <FieldSet className="gap-2">
+          <FieldLegend variant="label" className="mb-0">
+            Weight unit
+          </FieldLegend>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={0}
+            className="w-full"
+            aria-label="Weight unit"
+            value={settings.unit}
+            onValueChange={(v) => {
+              if (v !== 'kg' && v !== 'lb') return;
+              actions.updateSettings({ unit: v });
+              toast.success(`Weights now shown in ${v}`);
+            }}
+          >
+            {(['kg', 'lb'] as const).map((u) => (
+              <ToggleGroupItem key={u} value={u} className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
+                {u === 'kg' ? 'Kilograms (kg)' : 'Pounds (lb)'}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <FieldDescription className="text-xs">Pick once. Switching later does not convert numbers you already saved.</FieldDescription>
+        </FieldSet>
 
-      <label className="field">
-        <span>Rest timer after each set</span>
-        <select
-          className="input"
-          value={settings.restSeconds}
-          onChange={(e) => actions.updateSettings({ restSeconds: Number(e.target.value) })}
-        >
-          {REST_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s === 0 ? 'Off' : s < 60 ? `${s} sec` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} min`}
-            </option>
-          ))}
-        </select>
-      </label>
+        <Field className="gap-2">
+          <FieldLabel htmlFor={restId}>Rest timer after each set</FieldLabel>
+          <Select value={String(settings.restSeconds)} onValueChange={(v) => actions.updateSettings({ restSeconds: Number(v) })}>
+            <SelectTrigger id={restId} className="w-full data-[size=default]:h-10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REST_OPTIONS.map((s) => (
+                <SelectItem key={s} value={String(s)}>
+                  {restLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
 
-      <div className="field">
-        <span>Backup ({workouts.length} workouts saved on this device)</span>
-        <div className="row gap">
-          <button className="btn grow" onClick={exportData}>
-            ⬇ Save backup
-          </button>
-          <button className="btn grow" onClick={() => fileRef.current?.click()}>
-            ⬆ Restore
-          </button>
-        </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void importData(f);
-            e.target.value = '';
-          }}
-        />
-        <p className="muted small">Your data is saved only in this browser for now. Login & cloud sync are coming next.</p>
-      </div>
+        <FieldSet className="gap-2">
+          <FieldLegend variant="label" className="mb-0">
+            Backup{' '}
+            <span className="font-normal text-muted-foreground">
+              ({workouts.length} workouts saved on this device)
+            </span>
+          </FieldLegend>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" className="h-10" onClick={exportData}>
+              <Download /> Save backup
+            </Button>
+            <Button variant="outline" className="h-10" onClick={() => fileRef.current?.click()}>
+              <Upload /> Restore
+            </Button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void importData(f);
+              e.target.value = '';
+            }}
+          />
+          <FieldDescription className="text-xs">
+            Your data is saved only in this browser for now. Login &amp; cloud sync are coming next.
+          </FieldDescription>
+        </FieldSet>
 
-      <div className="field">
-        <span>Install on your phone</span>
-        <p className="muted small">
-          Android (Chrome): menu ⋮ → <b>Install app</b>. iPhone (Safari): Share → <b>Add to Home Screen</b>.
-        </p>
-      </div>
+        <FieldSet className="gap-1">
+          <FieldLegend variant="label" className="mb-0">
+            Install on your phone
+          </FieldLegend>
+          <FieldDescription className="text-xs">
+            Android (Chrome): menu ⋮ → <b className="font-medium text-foreground">Install app</b>. iPhone (Safari): Share →{' '}
+            <b className="font-medium text-foreground">Add to Home Screen</b>.
+          </FieldDescription>
+        </FieldSet>
+      </FieldGroup>
 
-      <button
-        className="btn danger-text block"
+      <Separator />
+
+      <Button
+        variant="destructive"
+        className="h-10 w-full"
         onClick={async () => {
           const ok = await confirmDialog({
             title: 'Delete everything?',
@@ -138,8 +178,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           toast('All data deleted');
         }}
       >
-        Reset all data
-      </button>
+        <Trash2 /> Reset all data
+      </Button>
     </Modal>
   );
 }
