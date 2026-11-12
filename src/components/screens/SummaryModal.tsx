@@ -8,7 +8,7 @@ import { useAccount } from '@/lib/account';
 import { actions, exerciseMap, useAppState } from '@/lib/store';
 import { useSyncStatus } from '@/lib/sync';
 import { WEEKDAYS_LONG, type DayPlan, type WorkoutSummary } from '@/lib/types';
-import { cn, formatDuration, formatVolume, formatW, workoutSetCount, workoutVolume } from '@/lib/utils';
+import { cn, formatVolume, formatW, workoutSetCount, workoutVolume } from '@/lib/utils';
 import { Stat, StatGrid } from '../common';
 import { Modal } from '../Modal';
 
@@ -29,7 +29,7 @@ export function SummaryModal({ summary, onClose }: { summary: WorkoutSummary; on
     >
       <h3 className="truncate text-center text-lg font-semibold tracking-tight">{workout.name}</h3>
       <StatGrid>
-        <Stat value={formatDuration((workout.finishedAt ?? Date.now()) - workout.startedAt)} label="duration" />
+        <Stat value={workout.exercises.length} label={workout.exercises.length === 1 ? 'exercise' : 'exercises'} />
         <Stat value={workoutSetCount(workout)} label={workoutSetCount(workout) === 1 ? 'set' : 'sets'} />
         <Stat value={formatVolume(workoutVolume(workout))} label="volume" />
       </StatGrid>

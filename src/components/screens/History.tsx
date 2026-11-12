@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -15,7 +15,6 @@ import type { Exercise, Workout } from '@/lib/types';
 import {
   cn,
   formatDate,
-  formatDuration,
   formatKg,
   formatVolume,
   formatW,
@@ -81,9 +80,8 @@ export function HistoryScreen({ onStarted }: { onStarted: () => void }) {
                       <h3 className="truncate text-sm font-semibold">{w.name}</h3>
                       <span className="shrink-0 text-xs text-muted-foreground">{formatDate(w.startedAt)}</span>
                     </div>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground tabular">
-                      <Clock className="size-3 shrink-0" />
-                      {formatDuration((w.finishedAt ?? w.startedAt) - w.startedAt)} · {workoutSetCount(w)} {workoutSetCount(w) === 1 ? 'set' : 'sets'} ·{' '}
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular">
+                      {workoutSetCount(w)} {workoutSetCount(w) === 1 ? 'set' : 'sets'} ·{' '}
                       {formatVolume(workoutVolume(w))}
                     </p>
                     {w.exercises.length > 0 && (
@@ -284,8 +282,7 @@ function WorkoutDetail({
         draft ? undefined : (
           <>
             {formatDate(workout.startedAt, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} ·{' '}
-            {new Date(workout.startedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })} ·{' '}
-            {formatDuration((workout.finishedAt ?? workout.startedAt) - workout.startedAt)}
+            {new Date(workout.startedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
           </>
         )
       }
