@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, CloudAlert, CloudCheck, CloudOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item';
+import { useAccount } from '@/lib/account';
 import { actions, exerciseMap, useAppState } from '@/lib/store';
+import { useSyncStatus } from '@/lib/sync';
 import { WEEKDAYS_LONG, type DayPlan, type WorkoutSummary } from '@/lib/types';
 import { cn, formatDuration, formatVolume, formatW, workoutSetCount, workoutVolume } from '@/lib/utils';
 import { Stat, StatGrid } from '../common';
@@ -31,6 +33,7 @@ export function SummaryModal({ summary, onClose }: { summary: WorkoutSummary; on
         <Stat value={workoutSetCount(workout)} label={workoutSetCount(workout) === 1 ? 'set' : 'sets'} />
         <Stat value={formatVolume(workoutVolume(workout))} label="volume" />
       </StatGrid>
+      <SaveStatus />
 
       {prs.length > 0 ? (
         <div className="rounded-lg border border-warning/30 bg-warning-soft p-3.5">
@@ -140,5 +143,26 @@ function PlanUpdateCard({ update }: { update: DayPlan }) {
         )}
       </Button>
     </div>
+  );
+}
+
+/** "Saving to your account…" → "Saved to your account" under the workout stats. */
+function SaveStatus() {
+  const account = useAccount();
+  const sync = useSyncStatus();
+  if (!account) return null;
+  const v =
+    sync.state === 'syncing'
+      ? { icon: <Loader2 className="size-4 animate-spin" />, text: 'Saving to your account…', tone: 'text-muted-foreground' }
+      : sync.state === 'offline'
+        ? { icon: <CloudOff className="size-4" />, text: 'Saved on this device — it will sync when you’re back online', tone: 'text-warning' }
+        : sync.state === 'error'
+          ? { icon: <CloudAlert className="size-4" />, text: 'Not saved to your account yet — retrying', tone: 'text-destructive' }
+          : { icon: <CloudCheck className="size-4" />, text: 'Saved to your account', tone: 'text-success' };
+  return (
+    <p className={cn('flex items-center justify-center gap-1.5 text-xs font-medium', v.tone)} aria-live="polite">
+      {v.icon}
+      {v.text}
+    </p>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChartLine, Dumbbell, History, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -81,13 +81,14 @@ export function App() {
     };
   }, []);
 
-  return ready ? <Shell /> : <Loader label="Loading your workouts" />;
+  return ready ? <Shell /> : <Loader label="Loading your workouts" text="Loading your workouts…" />;
 }
 
 function Shell() {
   const { active, onboarded } = useAppState();
   const account = useAccount();
   const TABS = account?.role === 'admin' ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+  useSyncToasts();
   const [tab, setTab] = useState<Tab>('today');
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
 
@@ -237,4 +238,22 @@ function AccountFooter({ email }: { email: string | null }) {
       </span>
     </div>
   );
+}
+
+/** Tell the user when saving to their account stops (offline / error) and when it's fine again. */
+function useSyncToasts() {
+  const sync = useSyncStatus();
+  const hadProblem = useRef(false);
+  useEffect(() => {
+    if (sync.state === 'offline' && !hadProblem.current) {
+      hadProblem.current = true;
+      toast('You’re offline — changes are saved on this device and will sync when you’re back', { id: 'sync-status' });
+    } else if (sync.state === 'error' && !hadProblem.current) {
+      hadProblem.current = true;
+      toast.error('Couldn’t save to your account — retrying automatically', { id: 'sync-status' });
+    } else if (sync.state === 'idle' && hadProblem.current) {
+      hadProblem.current = false;
+      toast.success('Back online — everything is saved', { id: 'sync-status' });
+    }
+  }, [sync.state]);
 }

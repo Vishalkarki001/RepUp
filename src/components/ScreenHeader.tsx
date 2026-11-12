@@ -5,6 +5,7 @@ import { Moon, Settings, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { setThemePref, useTheme } from '@/lib/theme';
 import { SettingsModal } from './screens/Settings';
+import { SyncIndicator } from './SyncIndicator';
 
 /** Page title + the two buttons every screen has: light/dark switch and settings. */
 export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode; title: string; children?: ReactNode }) {
@@ -18,6 +19,7 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
         <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
       </div>
       {children}
+      <SyncIndicator />
       <Button
         variant="ghost"
         size="icon"

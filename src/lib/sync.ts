@@ -252,7 +252,15 @@ export function useSyncStatus(): SyncStatus {
 
 let uid: string | null = null;
 let snapshot: Snapshot | null = null;
+/** The synced parts of the state as they were at the last successful sync (fast "anything changed?" check). */
+let syncedRefs: unknown[] | null = null;
+const syncedParts = (s: AppState) => [s.exercises, s.plans, s.workouts, s.bodyWeights, s.settings, s.onboarded];
+const markSynced = () => {
+  syncedRefs = syncedParts(getState());
+};
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryDelay = 15_000;
 let running: Promise<void> = Promise.resolve();
 let stopListening: (() => void) | null = null;
 
@@ -328,6 +336,7 @@ async function pullNow(): Promise<void> {
   }
   snapshot = next;
   saveSnapshot();
+  markSynced();
 }
 
 async function pushNow(): Promise<void> {
@@ -362,15 +371,25 @@ async function pushNow(): Promise<void> {
   }
   snapshot = snap;
   if (sent) saveSnapshot();
+  markSynced();
 }
 
 async function run(job: () => Promise<void>) {
   try {
     await job();
     setStatus({ state: isOffline() ? 'offline' : 'idle', lastSyncedAt: Date.now(), message: undefined });
+    retryDelay = 15_000;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     setStatus({ state: isOffline() || /fetch|network/i.test(msg) ? 'offline' : 'error', message: msg });
+    // Try again by itself: 15 s, 30 s, 60 s … up to every 2 minutes.
+    if (uid && !retryTimer) {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void syncNow();
+      }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 120_000);
+    }
   }
 }
 
@@ -390,6 +409,9 @@ export function flush(): Promise<void> {
 }
 
 function schedulePush() {
+  // Show "Saving…" right away when something that gets saved has changed
+  // (typing in a running workout isn't saved to the cloud, so it doesn't count).
+  if (uid && status.state !== 'syncing' && hasUnsyncedChanges()) setStatus({ state: isOffline() ? 'offline' : 'syncing' });
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
     pushTimer = null;
@@ -428,13 +450,19 @@ export function stopSync(): void {
   stopListening = null;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = null;
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+  retryDelay = 15_000;
   uid = null;
   snapshot = null;
+  syncedRefs = null;
 }
 
 /** True when some local change hasn't reached the server yet. */
 export function hasUnsyncedChanges(): boolean {
   if (!uid) return false;
+  // Fast path: nothing that syncs has been replaced since the last sync.
+  if (syncedRefs && syncedParts(getState()).every((part, i) => part === syncedRefs![i])) return false;
   const snap = snapshot ?? emptySnapshot();
   const d = dirtyKeys(rowsFromState(getState(), uid), snap);
   return TABLES.some((t) => d[t].size > 0);
