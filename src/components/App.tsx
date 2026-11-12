@@ -24,6 +24,7 @@ import { startSync, useSyncStatus } from '@/lib/sync';
 import type { WorkoutSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
+import { NavUser } from './NavUser';
 import { AdminScreen } from './screens/Admin';
 import { ActiveWorkout } from './screens/ActiveWorkout';
 import { HistoryScreen } from './screens/History';
@@ -138,8 +139,8 @@ function Shell() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="px-4 pb-4">
-          <AccountFooter email={account?.email ?? null} />
+        <SidebarFooter className="p-2">
+          <NavUser />
         </SidebarFooter>
       </Sidebar>
 
@@ -216,27 +217,6 @@ function ResumeBar({ name, onClick }: { name: string; onClick: () => void }) {
         <span>Continue</span>
       </Button>
     </button>
-  );
-}
-
-/** Signed-in email + a one-line sync status, at the bottom of the desktop sidebar. */
-function AccountFooter({ email }: { email: string | null }) {
-  const sync = useSyncStatus();
-  const label =
-    sync.state === 'syncing' ? 'Syncing…' : sync.state === 'offline' ? 'Offline — saved on this device' : sync.state === 'error' ? 'Sync problem — will retry' : 'All changes saved';
-  return (
-    <div className="flex flex-col gap-0.5 text-xs">
-      {email && <span className="truncate font-medium text-sidebar-foreground">{email}</span>}
-      <span className="flex items-center gap-1.5 text-muted-foreground">
-        <span
-          className={cn(
-            'size-1.5 rounded-full',
-            sync.state === 'idle' ? 'bg-success' : sync.state === 'syncing' ? 'animate-soft-pulse bg-primary' : sync.state === 'offline' ? 'bg-warning' : 'bg-destructive',
-          )}
-        />
-        {email ? label : 'Saved on this device'}
-      </span>
-    </div>
   );
 }
 

@@ -5,14 +5,16 @@ import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { deleteAccount, signOut, useAccount, wouldLoseChanges } from '@/lib/account';
+import { deleteAccount, useAccount } from '@/lib/account';
 import { actions, useAppState } from '@/lib/store';
 import { syncNow, useSyncStatus } from '@/lib/sync';
 import { setThemePref, useTheme, type ThemePref } from '@/lib/theme';
 import { todayISO } from '@/lib/utils';
+import { logOutWithCheck } from '../account-actions';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
 import { ProfileModal } from '../ProfileModal';
+import { UserAvatar } from '../UserAvatar';
 
 const THEMES: { id: ThemePref; label: string }[] = [
   { id: 'light', label: '☀️ Light' },
@@ -190,18 +192,8 @@ function AccountSection() {
 
   const logOut = async () => {
     setBusy('logout');
-    if (await wouldLoseChanges()) {
-      setBusy(null);
-      const ok = await confirmDialog({
-        title: 'Log out without saving?',
-        message: 'Some changes haven’t reached your account yet (no internet). If you log out now they’ll be lost.',
-        confirmLabel: 'Log out anyway',
-        danger: true,
-      });
-      if (!ok) return;
-      setBusy('logout');
-    }
-    await signOut();
+    await logOutWithCheck();
+    setBusy(null);
   };
 
   const remove = async () => {
@@ -223,13 +215,7 @@ function AccountSection() {
   return (
     <section className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
       <div className="flex items-center gap-3">
-        {account.avatarUrl ? (
-          <img src={account.avatarUrl} alt="" className="size-10 rounded-full border object-cover" referrerPolicy="no-referrer" />
-        ) : (
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent font-semibold text-accent-foreground uppercase">
-            {(account.name || account.email).slice(0, 1)}
-          </span>
-        )}
+        <UserAvatar account={account} className="size-10" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{account.name || account.email}</p>
           <p className="truncate text-xs text-muted-foreground">
