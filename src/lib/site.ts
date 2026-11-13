@@ -103,3 +103,17 @@ export const RUN_FACTS = [
   'LIMIT: tracking needs the screen on and RepUp open (phone in hand or an armband); screen off / other apps pause GPS, and the gap is joined with a straight line',
   'LIMIT: no heart rate, no live notification, no Apple Watch / Wear OS app, no training plans built into the app (plans on the website are guides)',
 ] as const;
+
+/** Food mode: the only food / calorie claims pages may make. */
+export const FOOD_FACTS = [
+  'Food mode: switch from the account menu (Workout / Running / Food mode)',
+  'Diary by day (Mon–Sun strip): Breakfast, Lunch, Dinner, Snacks; kcal eaten vs daily target, kcal left, protein / carbs / fat',
+  'About 1,000 foods built in (Indian dishes and basics from IFCT, the Indian Nutrient Databank and USDA) with Indian servings: roti, katori, piece; searchable in Hindi / Hinglish names',
+  'More foods from USDA FoodData Central; packaged foods by barcode (Open Food Facts); users can add a food from its pack label, shared with everyone',
+  'Every food is checked: calories must match protein, carbs and fat (4 / 4 / 9 kcal per g)',
+  'Oil / ghee: less, normal or extra for home-cooked dishes; quick add calories; same meal as yesterday in one tap',
+  'Know your calories: maintenance, lose fat (about ½ kg a week) or build muscle targets (Mifflin–St Jeor), or type your own',
+  'Progress: calories by day, average kcal and macros, days on target, days-in-a-row streak, body weight chart',
+  'Water: glasses a day (250 ml each); download any day as a PDF (runs too)',
+  'LIMIT: home-cooked food is an estimate (marked ~); no micronutrients, no meal plans, not for medical diets',
+] as const;

@@ -98,6 +98,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except Next.js assets, icons, the manifest and the service worker.
   matcher: [
-    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map)$).*)',
+    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map|wasm)$).*)',
   ],
 };

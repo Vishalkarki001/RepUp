@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { actions, getState, subscribeState, userKey } from './store';
 import { supabase } from './supabase/client';
-import type { AppState, BodyWeightEntry, DayPlan, Exercise, RunEntry, Workout } from './types';
+import type { AppState, BodyWeightEntry, DayPlan, Exercise, FoodGoal, FoodLog, RunEntry, Workout } from './types';
 
 /**
  * Cloud sync with Supabase.
@@ -21,12 +21,12 @@ import type { AppState, BodyWeightEntry, DayPlan, Exercise, RunEntry, Workout } 
  * their own rows.
  */
 
-type Table = 'user_settings' | 'exercises' | 'plans' | 'workouts' | 'body_weights' | 'runs';
+type Table = 'user_settings' | 'exercises' | 'plans' | 'workouts' | 'body_weights' | 'runs' | 'food_logs' | 'food_goals' | 'water_days';
 type Row = Record<string, unknown>;
 type Rows = Record<Table, Map<string, Row>>;
 type Snapshot = Record<Table, Record<string, string>>;
 
-const TABLES: Table[] = ['user_settings', 'exercises', 'plans', 'workouts', 'body_weights', 'runs'];
+const TABLES: Table[] = ['user_settings', 'exercises', 'plans', 'workouts', 'body_weights', 'runs', 'food_logs', 'food_goals', 'water_days'];
 const CONFLICT: Record<Table, string> = {
   user_settings: 'user_id',
   exercises: 'user_id,id',
@@ -34,9 +34,12 @@ const CONFLICT: Record<Table, string> = {
   workouts: 'user_id,id',
   body_weights: 'user_id,id',
   runs: 'user_id,id',
+  food_logs: 'user_id,id',
+  food_goals: 'user_id',
+  water_days: 'user_id,date',
 };
 /** Tables that may not exist yet while a database update is being applied: treated as empty until they do. */
-const OPTIONAL: Table[] = ['runs'];
+const OPTIONAL: Table[] = ['runs', 'food_logs', 'food_goals', 'water_days'];
 const missingTables = new Set<Table>();
 const isMissingTable = (e: { code?: string; message?: string }) =>
   e.code === '42P01' || e.code === 'PGRST205' || /could not find the table|does not exist/i.test(e.message ?? '');
@@ -47,7 +50,17 @@ const PUSH_DELAY_MS = 1500;
 /* ------------------------------------------------------------------ */
 
 function rowsFromState(s: AppState, uid: string): Rows {
-  const r: Rows = { user_settings: new Map(), exercises: new Map(), plans: new Map(), workouts: new Map(), body_weights: new Map(), runs: new Map() };
+  const r: Rows = {
+    user_settings: new Map(),
+    exercises: new Map(),
+    plans: new Map(),
+    workouts: new Map(),
+    body_weights: new Map(),
+    runs: new Map(),
+    food_logs: new Map(),
+    food_goals: new Map(),
+    water_days: new Map(),
+  };
   r.user_settings.set(uid, {
     user_id: uid,
     rest_seconds: s.settings.restSeconds,
@@ -90,7 +103,81 @@ function rowsFromState(s: AppState, uid: string): Rows {
     r.body_weights.set(b.id, { user_id: uid, id: b.id, date: b.date, kg: b.kg, deleted: false });
   }
   for (const x of s.runs) r.runs.set(x.id, runRow(uid, x));
+  for (const x of s.foodLogs) r.food_logs.set(x.id, foodLogRow(uid, x));
+  if (s.foodGoal) r.food_goals.set(uid, foodGoalRow(uid, s.foodGoal));
+  for (const [date, glasses] of Object.entries(s.water)) r.water_days.set(date, { user_id: uid, date, glasses: clamp(Math.round(glasses), 0, 40), deleted: false });
   return r;
+}
+
+const round1 = (n: number) => Math.round(Number(n) * 10) / 10;
+const round2 = (n: number) => Math.round(Number(n) * 100) / 100;
+
+/** Never send a value the database would refuse: one bad row would stop every later sync. */
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
+
+function foodLogRow(uid: string, x: FoodLog): Row {
+  return {
+    user_id: uid,
+    id: x.id,
+    date: x.date,
+    meal: x.meal,
+    food_id: x.foodId || 'unknown',
+    name: x.name.trim().slice(0, 160) || 'Food',
+    amount: clamp(round2(x.amount), 0.01, 999999),
+    unit: x.unit.trim().slice(0, 40) || 'serving',
+    grams: clamp(round1(x.grams), 0, 9999999),
+    kcal: clamp(Math.round(x.kcal), 0, 20000),
+    protein: clamp(round1(x.protein), 0, 999999),
+    carbs: clamp(round1(x.carbs), 0, 999999),
+    fat: clamp(round1(x.fat), 0, 999999),
+    source: x.source,
+    logged_at: new Date(x.loggedAt).toISOString(),
+    deleted: false,
+  };
+}
+
+function foodLogFromRow(r: Row): FoodLog {
+  return {
+    id: String(r.id),
+    date: String(r.date).slice(0, 10),
+    meal: (['breakfast', 'lunch', 'dinner', 'snacks'] as const).find((m) => m === r.meal) ?? 'snacks',
+    foodId: String(r.food_id),
+    name: String(r.name),
+    amount: Number(r.amount),
+    unit: String(r.unit),
+    grams: Number(r.grams),
+    kcal: Number(r.kcal),
+    protein: Number(r.protein),
+    carbs: Number(r.carbs),
+    fat: Number(r.fat),
+    source: (['usda', 'off', 'user', 'quick'] as const).find((x) => x === r.source) ?? 'local',
+    loggedAt: Date.parse(String(r.logged_at)),
+  };
+}
+
+function foodGoalRow(uid: string, g: FoodGoal): Row {
+  return {
+    user_id: uid,
+    plan: g.plan,
+    kcal: clamp(Math.round(g.kcal), 500, 10000),
+    protein: clamp(Math.round(g.protein), 0, 1000),
+    carbs: clamp(Math.round(g.carbs), 0, 2000),
+    fat: clamp(Math.round(g.fat), 0, 1000),
+    profile: g.profile ?? null,
+    deleted: false,
+  };
+}
+
+function foodGoalFromRow(r: Row): FoodGoal {
+  const plan = r.plan === 'lose' || r.plan === 'maintain' || r.plan === 'gain' ? r.plan : 'custom';
+  return {
+    plan,
+    kcal: Number(r.kcal),
+    protein: Number(r.protein),
+    carbs: Number(r.carbs),
+    fat: Number(r.fat),
+    profile: (r.profile as FoodGoal['profile']) ?? undefined,
+  };
 }
 
 function runRow(uid: string, x: RunEntry): Row {
@@ -116,7 +203,14 @@ function runRow(uid: string, x: RunEntry): Row {
   };
 }
 
-const keyOf = (t: Table, row: Row) => (t === 'user_settings' ? String(row.user_id) : t === 'plans' ? String(row.day) : String(row.id));
+const keyOf = (t: Table, row: Row) =>
+  t === 'user_settings' || t === 'food_goals'
+    ? String(row.user_id)
+    : t === 'plans'
+      ? String(row.day)
+      : t === 'water_days'
+        ? String(row.date).slice(0, 10)
+        : String(row.id);
 
 /** JSON with object keys sorted (Postgres jsonb reorders keys, so plain JSON.stringify would never match). */
 function stable(v: unknown): string {
@@ -142,7 +236,7 @@ function normalizeRemote(t: Table, r: Row): Row {
         rest_seconds: Number(r.rest_seconds),
         default_reps: Number(r.default_reps),
         unit: r.unit,
-        mode: r.mode === 'running' ? 'running' : 'workout',
+        mode: r.mode === 'running' || r.mode === 'food' ? r.mode : 'workout',
         onboarded: Boolean(r.onboarded),
       };
     case 'exercises':
@@ -165,6 +259,12 @@ function normalizeRemote(t: Table, r: Row): Row {
       return { user_id: r.user_id, id: r.id, date: r.date, kg: Number(r.kg), deleted: false };
     case 'runs':
       return runRow(String(r.user_id), runFromRow(r));
+    case 'food_logs':
+      return foodLogRow(String(r.user_id), foodLogFromRow(r));
+    case 'food_goals':
+      return foodGoalRow(String(r.user_id), foodGoalFromRow(r));
+    case 'water_days':
+      return { user_id: r.user_id, date: String(r.date).slice(0, 10), glasses: Number(r.glasses), deleted: false };
   }
 }
 
@@ -213,7 +313,7 @@ function applyRemote(s: AppState, remote: Record<Table, Row[]>, dirty: Record<Ta
         restSeconds: Number(remoteSettings.rest_seconds),
         defaultReps: Number(remoteSettings.default_reps),
         unit: remoteSettings.unit === 'lb' ? 'lb' : 'kg',
-        mode: remoteSettings.mode === 'running' ? 'running' : 'workout',
+        mode: remoteSettings.mode === 'running' || remoteSettings.mode === 'food' ? remoteSettings.mode : 'workout',
       };
     }
     onboarded = remoteOnboarded || (firstSync && s.onboarded);
@@ -293,7 +393,28 @@ function applyRemote(s: AppState, remote: Record<Table, Row[]>, dirty: Record<Ta
   }
   runs.sort((a, b) => b.startedAt - a.startedAt);
 
-  return { ...s, exercises, plans, workouts, bodyWeights, runs, settings, onboarded };
+  let foodLogs = [...s.foodLogs];
+  for (const row of remote.food_logs) {
+    const id = String(row.id);
+    if (dirty.food_logs.has(id)) continue;
+    foodLogs = foodLogs.filter((x) => x.id !== id);
+    if (!row.deleted) foodLogs.push(foodLogFromRow(row));
+  }
+  foodLogs.sort((a, b) => b.date.localeCompare(a.date) || a.loggedAt - b.loggedAt);
+
+  let foodGoal = s.foodGoal;
+  const remoteGoal = remote.food_goals[0];
+  if (remoteGoal && !dirty.food_goals.size) foodGoal = remoteGoal.deleted ? null : foodGoalFromRow(remoteGoal);
+
+  const water = { ...s.water };
+  for (const row of remote.water_days) {
+    const date = String(row.date).slice(0, 10);
+    if (dirty.water_days.has(date)) continue;
+    if (row.deleted || !Number(row.glasses)) delete water[date];
+    else water[date] = Number(row.glasses);
+  }
+
+  return { ...s, exercises, plans, workouts, bodyWeights, runs, foodLogs, foodGoal, water, settings, onboarded };
 }
 
 /* ------------------------------------------------------------------ */
@@ -326,7 +447,7 @@ let uid: string | null = null;
 let snapshot: Snapshot | null = null;
 /** The synced parts of the state as they were at the last successful sync (fast "anything changed?" check). */
 let syncedRefs: unknown[] | null = null;
-const syncedParts = (s: AppState) => [s.exercises, s.plans, s.workouts, s.bodyWeights, s.runs, s.settings, s.onboarded];
+const syncedParts = (s: AppState) => [s.exercises, s.plans, s.workouts, s.bodyWeights, s.runs, s.foodLogs, s.foodGoal, s.water, s.settings, s.onboarded];
 const markSynced = () => {
   syncedRefs = syncedParts(getState());
 };
@@ -337,7 +458,17 @@ let running: Promise<void> = Promise.resolve();
 let stopListening: (() => void) | null = null;
 
 const snapKey = (id: string) => `${userKey(id)}:synced`;
-const emptySnapshot = (): Snapshot => ({ user_settings: {}, exercises: {}, plans: {}, workouts: {}, body_weights: {}, runs: {} });
+const emptySnapshot = (): Snapshot => ({
+  user_settings: {},
+  exercises: {},
+  plans: {},
+  workouts: {},
+  body_weights: {},
+  runs: {},
+  food_logs: {},
+  food_goals: {},
+  water_days: {},
+});
 
 function loadSnapshot(id: string): Snapshot | null {
   try {
@@ -549,3 +680,6 @@ export function hasUnsyncedChanges(): boolean {
   const d = dirtyKeys(rowsFromState(getState(), uid), snap);
   return TABLES.some((t) => d[t].size > 0);
 }
+
+/** For tests only: the row building / reading that decides what gets sent. */
+export const __syncInternals = { rowsFromState, normalizeRemote, fingerprint, applyRemote, emptySnapshot, TABLES };

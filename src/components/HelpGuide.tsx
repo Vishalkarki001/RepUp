@@ -1,10 +1,30 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { CalendarDays, ChartLine, Check, CircleQuestionMark, CloudCheck, Download, Flag, Pencil, Play, Share } from 'lucide-react';
+import {
+  Calculator,
+  CalendarDays,
+  ChartLine,
+  Check,
+  CircleQuestionMark,
+  CloudCheck,
+  Download,
+  Flag,
+  Lock,
+  MapPin,
+  Pencil,
+  Play,
+  ScanBarcode,
+  Search,
+  Share,
+  Shuffle,
+  Utensils,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { promptInstall, useInstall } from '@/lib/install';
+import { useAppState } from '@/lib/store';
+import type { AppMode } from '@/lib/types';
 import { Modal } from './Modal';
 
 const STEPS: { icon: ReactNode; title: string; body: ReactNode }[] = [
@@ -78,6 +98,108 @@ const STEPS: { icon: ReactNode; title: string; body: ReactNode }[] = [
   },
 ];
 
+const SWITCH = {
+  icon: <Shuffle />,
+  title: 'Gym, running or food',
+  body: (
+    <>
+      Tap your photo (or your name in the sidebar) and pick <b>Workout mode</b>, <b>Running mode</b> or <b>Food mode</b>. Same
+      account, everything saved.
+    </>
+  ),
+};
+
+const RUN_STEPS: typeof STEPS = [
+  {
+    icon: <Play />,
+    title: 'Start a run or walk',
+    body: (
+      <>
+        Pick <b>Run</b> or <b>Walk</b> and tap <b>Start</b>. Allow location when asked. Keep the screen on and RepUp open while you
+        go: phone in your hand or an armband.
+      </>
+    ),
+  },
+  {
+    icon: <Lock />,
+    title: 'Pause, lock, finish',
+    body: (
+      <>
+        <b>Pause</b> at a signal, <b>lock</b> so sweaty touches do nothing, then <b>Finish</b>. You hear your time at every km.
+      </>
+    ),
+  },
+  {
+    icon: <MapPin />,
+    title: 'See your run',
+    body: (
+      <>
+        Distance, pace, splits for every km and your route on a map. <b>PDF</b> saves it to share. Treadmill? Use{' '}
+        <b>Add a run by hand</b>.
+      </>
+    ),
+  },
+  SWITCH,
+];
+
+const FOOD_STEPS: typeof STEPS = [
+  {
+    icon: <Calculator />,
+    title: 'Set your daily target',
+    body: (
+      <>
+        Open <b>Calories</b>, fill in age, height and weight, and tap <b>Use this</b> on lose fat, stay the same or build muscle.
+      </>
+    ),
+  },
+  {
+    icon: <Search />,
+    title: 'Add what you eat',
+    body: (
+      <>
+        Under Breakfast, Lunch, Dinner or Snacks tap <b>Add food</b> and search: roti, dal, paneer, banana… Hindi names work too.
+      </>
+    ),
+  },
+  {
+    icon: <Utensils />,
+    title: 'Pick how much',
+    body: (
+      <>
+        Choose katori, roti or piece, or tap <b>grams</b> and type the weight (for example 300). Calories, protein, carbs and fat
+        change as you type. For home food you can set the oil: less, normal or extra.
+      </>
+    ),
+  },
+  {
+    icon: <ScanBarcode />,
+    title: 'Packets: scan the barcode',
+    body: (
+      <>
+        Tap the barcode icon in the search box. Not found? <b>Add from label</b>: copy the numbers from the pack once, and everyone
+        can find it after that.
+      </>
+    ),
+  },
+  {
+    icon: <ChartLine />,
+    title: 'Check your day',
+    body: (
+      <>
+        The top card shows calories eaten and left. <b>Progress</b> shows your week, your streak and your weight. <b>Download PDF</b>{' '}
+        saves the day.
+      </>
+    ),
+  },
+  SWITCH,
+];
+
+const GUIDE: Record<AppMode, { description: string; steps: typeof STEPS }> = {
+  workout: { description: "Record sets × kg × reps, then beat last time. That's it.", steps: [...STEPS, SWITCH] },
+  running: { description: 'Track runs and walks with GPS: distance, pace and your route.', steps: RUN_STEPS },
+  food: { description: 'Log what you eat and see calories and protein against your target.', steps: FOOD_STEPS },
+};
+
 function InstallStep() {
   const { installed, canPrompt, ios } = useInstall();
   if (installed) return null;
@@ -128,10 +250,12 @@ function InstallStep() {
 
 /** "How to use RepUp": short numbered steps, plus the install button. */
 export function HelpGuide({ onClose }: { onClose: () => void }) {
+  const { settings } = useAppState();
+  const guide = GUIDE[settings.mode] ?? GUIDE.workout;
   return (
     <Modal
       title="How to use RepUp"
-      description="Record sets × kg × reps, then beat last time. That's it."
+      description={guide.description}
       onClose={onClose}
       footer={
         <Button className="h-10 w-full" onClick={onClose}>
@@ -141,7 +265,7 @@ export function HelpGuide({ onClose }: { onClose: () => void }) {
     >
       <ol className="flex flex-col gap-3">
         <InstallStep />
-        {STEPS.map((s, i) => (
+        {guide.steps.map((s, i) => (
           <li key={s.title} className="flex gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold tabular">
               {i + 1}

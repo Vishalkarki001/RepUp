@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus } from 'lucide-react';
+import { ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus, Utensils, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -18,10 +18,17 @@ import { useAccount, type Account } from '@/lib/account';
 import { useRun } from '@/lib/run/tracker';
 import { actions, useAppState } from '@/lib/store';
 import { syncNow } from '@/lib/sync';
+import type { AppMode } from '@/lib/types';
 import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
 import { SettingsModal } from './screens/Settings';
 import { UserAvatar } from './UserAvatar';
+
+const MODES: { id: AppMode; label: string; icon: LucideIcon }[] = [
+  { id: 'workout', label: 'Workout mode', icon: Dumbbell },
+  { id: 'running', label: 'Running mode', icon: Footprints },
+  { id: 'food', label: 'Food mode', icon: Utensils },
+];
 
 const INVITE_TEXT = 'I track my gym workouts with RepUp. Free, simple, shows what you lifted last time:';
 
@@ -92,19 +99,24 @@ export function AccountMenu({
               <DropdownMenuSeparator />
             </>
           )}
-          {/* Only the other mode is offered. */}
-          <DropdownMenuItem
-            className="font-medium"
-            disabled={running && !!track}
-            onSelect={() => {
-              actions.updateSettings({ mode: running ? 'workout' : 'running' });
-              toast.success(running ? 'Workout mode' : 'Running mode');
-            }}
-          >
-            {running ? <Dumbbell /> : <Footprints />}
-            {running ? 'Workout mode' : 'Running mode'}
-            {running && track && <span className="ml-auto text-xs text-muted-foreground">finish your run first</span>}
-          </DropdownMenuItem>
+          {/* The other two modes. */}
+          <DropdownMenuGroup>
+            {MODES.filter((m) => m.id !== settings.mode).map(({ id, label, icon: Icon }) => (
+              <DropdownMenuItem
+                key={id}
+                className="font-medium"
+                disabled={running && !!track}
+                onSelect={() => {
+                  actions.updateSettings({ mode: id });
+                  toast.success(label);
+                }}
+              >
+                <Icon />
+                {label}
+                {running && track && <span className="ml-auto text-xs text-muted-foreground">finish your run first</span>}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onSelect={() => setOpen('profile')}>

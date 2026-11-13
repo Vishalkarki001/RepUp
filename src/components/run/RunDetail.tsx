@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Download, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { downloadRunPdf } from '@/lib/exportPdf';
 import { formatDuration, formatKm, formatPace, paceSecPerKm, weatherLabel } from '@/lib/run/core';
 import { actions } from '@/lib/store';
 import type { RunEntry } from '@/lib/types';
@@ -18,6 +19,17 @@ import { kindLabel } from './RunParts';
 /** A saved run: numbers, map, km splits, note. Also used as the "run saved" summary. */
 export function RunDetail({ run, onClose, justSaved = false }: { run: RunEntry; onClose: () => void; justSaved?: boolean }) {
   const [note, setNote] = useState(run.note ?? '');
+  const [exporting, setExporting] = useState(false);
+  const exportPdf = async () => {
+    setExporting(true);
+    try {
+      await downloadRunPdf({ ...run, note: note.trim() || undefined });
+    } catch {
+      toast.error('Couldn’t make the PDF. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   const pace = paceSecPerKm(run.distanceM, run.durationS);
   const weather = weatherLabel(run.weatherCode);
   const splits = run.splits ?? [];
@@ -54,6 +66,9 @@ export function RunDetail({ run, onClose, justSaved = false }: { run: RunEntry; 
         <div className="flex gap-2">
           <Button variant="ghost" className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={remove}>
             <Trash2 /> Delete
+          </Button>
+          <Button variant="outline" className="h-10" disabled={exporting} onClick={exportPdf} aria-label="Download PDF">
+            {exporting ? <Loader2 className="animate-spin" /> : <Download />} PDF
           </Button>
           <Button
             className="h-10 flex-1"

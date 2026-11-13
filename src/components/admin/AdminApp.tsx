@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Dumbbell, Footprints, LayoutDashboard, Users } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Footprints, LayoutDashboard, Users, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -27,24 +27,26 @@ import { Loader } from '../Loader';
 import { UserAvatar } from '../UserAvatar';
 import { adminApi } from './api';
 import { AdminDashboard } from './Dashboard';
+import { AdminFoods } from './Foods';
 import { AdminUsers } from './Users';
 import { AdminRuns } from './Runs';
 import { AdminWorkouts } from './Workouts';
 
-export type Section = 'dashboard' | 'users' | 'workouts' | 'runs';
+export type Section = 'dashboard' | 'users' | 'workouts' | 'runs' | 'foods';
 
 const NAV: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'workouts', label: 'Workouts', icon: Dumbbell },
   { id: 'runs', label: 'Runs', icon: Footprints },
+  { id: 'foods', label: 'Foods', icon: Utensils },
 ];
 
-const TITLES: Record<Section, string> = { dashboard: 'Dashboard', users: 'Users', workouts: 'Workouts', runs: 'Runs' };
+const TITLES: Record<Section, string> = { dashboard: 'Dashboard', users: 'Users', workouts: 'Workouts', runs: 'Runs', foods: 'Foods' };
 
 function sectionFromHash(): Section {
   const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
-  return h === 'users' || h === 'workouts' || h === 'runs' ? h : 'dashboard';
+  return h === 'users' || h === 'workouts' || h === 'runs' || h === 'foods' ? h : 'dashboard';
 }
 
 /**
@@ -213,6 +215,7 @@ function AdminShell() {
           {section === 'users' && <AdminUsers onOpenWorkouts={openWorkoutsFor} onOpenRuns={openRunsFor} />}
           {section === 'workouts' && <AdminWorkouts user={workoutsFor} onClearUser={() => setWorkoutsFor(null)} />}
           {section === 'runs' && <AdminRuns user={runsFor} onClearUser={() => setRunsFor(null)} />}
+          {section === 'foods' && <AdminFoods />}
         </div>
       </SidebarInset>
     </>

@@ -95,6 +95,30 @@ export interface AdminRun {
   note: string | null;
 }
 
+export interface AdminFood {
+  id: string;
+  source: 'usda' | 'off' | 'user';
+  name: string;
+  brand: string | null;
+  barcode: string | null;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  created_at: string;
+  added_by: string | null;
+  uses: number;
+}
+
+export interface AdminFoodStats {
+  usda: number;
+  off: number;
+  user: number;
+  logs: number;
+  loggers_7d: number;
+  with_goal: number;
+}
+
 /** Turns a database error into words an admin understands. */
 export function adminError(err: { code?: string; message?: string } | null | undefined): string | null {
   if (!err) return null;
@@ -140,6 +164,10 @@ export const adminApi = {
       p_before: opts.before ?? null,
       p_limit: opts.limit ?? 50,
     }),
+  foods: (opts: { search?: string; source?: AdminFood['source'] | null; limit?: number } = {}) =>
+    call<AdminFood[]>('admin_foods', { p_search: opts.search?.trim() || null, p_source: opts.source ?? null, p_limit: opts.limit ?? 200 }),
+  foodStats: () => call<AdminFoodStats>('admin_food_stats'),
+  deleteFood: (id: string) => call<null>('admin_delete_food', { p_id: id }),
   setRole: (user: string, role: 'user' | 'admin') => call<null>('admin_set_role', { p_user: user, p_role: role }),
   setBlocked: (user: string, blocked: boolean) => call<null>('admin_set_blocked', { p_user: user, p_blocked: blocked }),
   setName: (user: string, name: string) => call<null>('admin_set_name', { p_user: user, p_name: name }),

@@ -26,7 +26,7 @@ const FAQS: Faq[] = [
   },
   {
     q: 'Does RepUp have a rest timer or calorie counter?',
-    a: 'Not for gym workouts: Workout mode is kept simple on purpose and records sets, reps and kg so you can beat last time. Running mode (for runs and walks) has a run timer, GPS distance, pace and a rough calorie estimate. RepUp never tracks food.',
+    a: 'Workout mode has no rest timer: it is kept simple on purpose and records sets, reps and kg so you can beat last time. Running mode has a run timer, GPS distance, pace and a rough calorie estimate. Food mode is a calorie counter: log what you eat (Indian food included, or scan a barcode) and see calories, protein, carbs and fat against your daily target.',
   },
   {
     q: 'Can RepUp track my runs too?',

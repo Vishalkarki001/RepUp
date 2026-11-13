@@ -5,6 +5,8 @@ import type {
   BodyWeightEntry,
   Exercise,
   DayPlan,
+  FoodGoal,
+  FoodLog,
   PersonalRecord,
   PlanItem,
   RunEntry,
@@ -39,6 +41,9 @@ function initialState(): AppState {
     restTotal: 0,
     bodyWeights: [],
     runs: [],
+    foodLogs: [],
+    foodGoal: null,
+    water: {},
     settings: { restSeconds: 90, defaultReps: 10, unit: 'kg', mode: 'workout' },
     onboarded: false,
   };
@@ -74,7 +79,7 @@ function normalize(raw: unknown): AppState | null {
     restSeconds: r.settings?.restSeconds ?? base.settings.restSeconds,
     defaultReps: r.settings?.defaultReps ?? r.settings?.repMax ?? base.settings.defaultReps,
     unit: r.settings?.unit === 'lb' ? 'lb' : 'kg',
-    mode: r.settings?.mode === 'running' ? 'running' : 'workout',
+    mode: r.settings?.mode === 'running' || r.settings?.mode === 'food' ? r.settings.mode : 'workout',
   };
   const fixRange = <T extends { repMin?: number; repMax?: number }>(x: T) => ({
     ...x,
@@ -97,6 +102,21 @@ function normalize(raw: unknown): AppState | null {
     typeof x.durationS === 'number' &&
     typeof x.distanceM === 'number' &&
     (x.kind === 'run' || x.kind === 'walk');
+  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+  const validFoodLog = (x: unknown): x is FoodLog =>
+    isObj(x) &&
+    typeof x.id === 'string' &&
+    typeof x.date === 'string' &&
+    typeof x.name === 'string' &&
+    typeof x.foodId === 'string' &&
+    (x.meal === 'breakfast' || x.meal === 'lunch' || x.meal === 'dinner' || x.meal === 'snacks') &&
+    num(x.kcal) &&
+    num(x.protein) &&
+    num(x.carbs) &&
+    num(x.fat) &&
+    num(x.grams) &&
+    num(x.amount);
+  const validGoal = (g: unknown): g is FoodGoal => isObj(g) && num(g.kcal) && num(g.protein) && num(g.carbs) && num(g.fat);
   const validPlan = (p: unknown): p is DayPlan =>
     isObj(p) && typeof p.day === 'number' && p.day >= 0 && p.day <= 6 && Array.isArray(p.items);
   const plans = Array.isArray(r.plans)
@@ -119,11 +139,21 @@ function normalize(raw: unknown): AppState | null {
       ? r.bodyWeights.filter((b) => isObj(b) && typeof b.kg === 'number' && typeof b.date === 'string')
       : [],
     runs: Array.isArray(r.runs) ? r.runs.filter(validRun).sort((a, b) => b.startedAt - a.startedAt) : [],
+    foodLogs: Array.isArray(r.foodLogs) ? r.foodLogs.filter(validFoodLog).sort(byFoodLog) : [],
+    foodGoal: validGoal(r.foodGoal) ? r.foodGoal : null,
+    water: isObj(r.water)
+      ? Object.fromEntries(
+          Object.entries(r.water).filter(([d, n]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && typeof n === 'number' && n > 0 && n <= 40),
+        )
+      : {},
     settings,
     // Data saved before the first-run picker existed belongs to someone who already set things up.
     onboarded: r.onboarded ?? true,
   };
 }
+
+/** Newest day first; within a day in the order they were added. */
+const byFoodLog = (a: FoodLog, b: FoodLog) => b.date.localeCompare(a.date) || a.loggedAt - b.loggedAt;
 
 function load(): AppState {
   if (typeof window === 'undefined') return initialState();
@@ -181,6 +211,7 @@ function mergeGuest(user: AppState, guest: AppState): AppState {
   const workouts = byId(user.workouts, guest.workouts).sort((a, b) => b.startedAt - a.startedAt);
   const bodyWeights = byId(user.bodyWeights, guest.bodyWeights).sort((a, b) => b.date.localeCompare(a.date));
   const runs = byId(user.runs, guest.runs).sort((a, b) => b.startedAt - a.startedAt);
+  const foodLogs = byId(user.foodLogs, guest.foodLogs).sort(byFoodLog);
   const exercises = byId(user.exercises, guest.exercises);
   const fresh = !user.onboarded;
   return {
@@ -189,6 +220,9 @@ function mergeGuest(user: AppState, guest: AppState): AppState {
     workouts,
     bodyWeights,
     runs,
+    foodLogs,
+    foodGoal: user.foodGoal ?? guest.foodGoal,
+    water: { ...guest.water, ...user.water },
     plans: fresh ? guest.plans : user.plans,
     settings: fresh ? guest.settings : user.settings,
     onboarded: user.onboarded || guest.onboarded,
@@ -210,7 +244,7 @@ export function switchUser(uid: string | null): { movedGuestData: boolean } {
       const raw = localStorage.getItem(GUEST_KEY);
       const guest = raw ? normalize(JSON.parse(raw)) : null;
       if (raw && guest) {
-        const hasData = guest.workouts.length > 0 || guest.runs.length > 0 || guest.bodyWeights.length > 0 || guest.exercises.some((e) => e.custom);
+        const hasData = guest.workouts.length > 0 || guest.runs.length > 0 || guest.foodLogs.length > 0 || guest.bodyWeights.length > 0 || guest.exercises.some((e) => e.custom);
         if (hasData || guest.onboarded) {
           next = mergeGuest(next, guest);
           movedGuestData = hasData;
@@ -574,6 +608,35 @@ export const actions = {
 
   deleteRun(id: string) {
     set((s) => ({ ...s, runs: s.runs.filter((r) => r.id !== id) }));
+  },
+
+  /* ---------- food ---------- */
+
+  addFoodLog(log: FoodLog) {
+    set((s) => ({ ...s, foodLogs: [...s.foodLogs.filter((l) => l.id !== log.id), log].sort(byFoodLog) }));
+  },
+
+  updateFoodLog(id: string, patch: Partial<Omit<FoodLog, 'id'>>) {
+    set((s) => ({ ...s, foodLogs: s.foodLogs.map((l) => (l.id === id ? { ...l, ...patch } : l)).sort(byFoodLog) }));
+  },
+
+  deleteFoodLog(id: string) {
+    set((s) => ({ ...s, foodLogs: s.foodLogs.filter((l) => l.id !== id) }));
+  },
+
+  /** Glasses of water on a day (0 removes the day). */
+  setWater(date: string, glasses: number) {
+    set((s) => {
+      const water = { ...s.water };
+      const n = Math.max(0, Math.min(40, Math.round(glasses)));
+      if (n) water[date] = n;
+      else delete water[date];
+      return { ...s, water };
+    });
+  },
+
+  setFoodGoal(goal: FoodGoal | null) {
+    set((s) => ({ ...s, foodGoal: goal }));
   },
 
   deleteBodyWeight(id: string) {

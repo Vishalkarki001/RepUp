@@ -98,8 +98,8 @@ export interface BodyWeightEntry {
 
 export type WeightUnit = 'kg' | 'lb';
 
-/** Which side of the app is shown: gym workouts or running. */
-export type AppMode = 'workout' | 'running';
+/** Which side of the app is shown: gym workouts, running or food. */
+export type AppMode = 'workout' | 'running' | 'food';
 
 export type RunKind = 'run' | 'walk';
 
@@ -129,6 +129,58 @@ export interface RunEntry {
   note?: string;
 }
 
+export const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'] as const;
+export type Meal = (typeof MEALS)[number];
+export const MEAL_LABELS: Record<Meal, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snacks: 'Snacks' };
+
+/** kcal + macros in grams. */
+export interface Macros {
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+/**
+ * Where a food's numbers come from: RepUp's own list, USDA, a pack label (Open Food Facts),
+ * a food a user added for everyone, or calories typed in once (quick add).
+ */
+export type FoodSource = 'local' | 'usda' | 'off' | 'user' | 'quick';
+
+/** One food eaten: "1.5 roti at lunch". Totals are for the whole amount. */
+export interface FoodLog extends Macros {
+  id: string;
+  date: string; // YYYY-MM-DD
+  meal: Meal;
+  foodId: string;
+  name: string;
+  /** How much, in `unit`: 1.5 (roti), 150 (g). */
+  amount: number;
+  unit: string;
+  grams: number;
+  source: FoodSource;
+  loggedAt: number;
+}
+
+export type Sex = 'male' | 'female';
+export type Activity = 'sitting' | 'light' | 'moderate' | 'active' | 'very';
+export type FoodPlan = 'lose' | 'maintain' | 'gain' | 'custom';
+
+/** Inputs for the "Know your calories" calculator. */
+export interface FoodProfile {
+  sex: Sex;
+  age: number;
+  heightCm: number;
+  weightKg: number;
+  activity: Activity;
+}
+
+/** Daily target: kcal + macros (g). */
+export interface FoodGoal extends Macros {
+  plan: FoodPlan;
+  profile?: FoodProfile;
+}
+
 export interface Settings {
   restSeconds: number;
   /** Reps used when an exercise is added without a plan. */
@@ -148,6 +200,10 @@ export interface AppState {
   restTotal: number;
   bodyWeights: BodyWeightEntry[]; // newest first
   runs: RunEntry[]; // newest first
+  foodLogs: FoodLog[]; // newest day first
+  foodGoal: FoodGoal | null;
+  /** Glasses of water (250 ml) by day, YYYY-MM-DD → count. */
+  water: Record<string, number>;
   settings: Settings;
   /** False until the first-run plan picker has been answered. */
   onboarded: boolean;

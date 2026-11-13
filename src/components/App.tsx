@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChartLine, Dumbbell, Footprints, History, ListChecks, type LucideIcon } from 'lucide-react';
+import { Calculator, ChartLine, Dumbbell, Footprints, History, ListChecks, Utensils, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +26,7 @@ import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { startSync, useSyncStatus } from '@/lib/sync';
 import { useRun } from '@/lib/run/tracker';
-import type { RunEntry, WorkoutSummary } from '@/lib/types';
+import type { AppMode, RunEntry, WorkoutSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
 import { NavUser } from './NavUser';
@@ -40,8 +40,9 @@ import { TodayScreen } from './screens/Today';
 import { ActiveRun } from './run/ActiveRun';
 import { RunDetail } from './run/RunDetail';
 import { RunHistory, RunHome, RunProgress } from './run/RunScreens';
+import { FoodCalories, FoodDiary, FoodProgress } from './food/FoodScreens';
 
-type Tab = 'today' | 'history' | 'progress' | 'library' | 'run' | 'runs' | 'run-progress';
+type Tab = 'today' | 'history' | 'progress' | 'library' | 'run' | 'runs' | 'run-progress' | 'food' | 'food-progress' | 'food-calc';
 
 /** Running mode: its own three tabs. */
 const RUN_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -49,6 +50,15 @@ const RUN_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'runs', label: 'History', icon: History },
   { id: 'run-progress', label: 'Progress', icon: ChartLine },
 ];
+
+/** Food mode: diary, progress and "Know your calories". */
+const FOOD_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: 'food', label: 'Food', icon: Utensils },
+  { id: 'food-progress', label: 'Progress', icon: ChartLine },
+  { id: 'food-calc', label: 'Calories', icon: Calculator },
+];
+
+const FIRST_TAB: Record<AppMode, Tab> = { workout: 'today', running: 'run', food: 'food' };
 
 const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Workout', icon: Dumbbell },
@@ -114,11 +124,13 @@ function Shell() {
 
 function ShellInner() {
   const { active, onboarded, settings } = useAppState();
-  const running = settings.mode === 'running';
+  const mode = settings.mode;
+  const running = mode === 'running';
+  const eating = mode === 'food';
   // Admins open the admin panel (/admin) from the account menu, so the tabs are the same for everyone.
-  const TABS = running ? RUN_TABS : BASE_TABS;
+  const TABS = running ? RUN_TABS : eating ? FOOD_TABS : BASE_TABS;
   useSyncToasts();
-  const [tab, setTab] = useState<Tab>(running ? 'run' : 'today');
+  const [tab, setTab] = useState<Tab>(FIRST_TAB[mode]);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [savedRun, setSavedRun] = useState<RunEntry | null>(null);
   const { state } = useSidebar();
@@ -126,8 +138,8 @@ function ShellInner() {
 
   // Switching mode (account menu) opens that mode's first tab.
   useEffect(() => {
-    setTab(running ? 'run' : 'today');
-  }, [running]);
+    setTab(FIRST_TAB[mode]);
+  }, [mode]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
@@ -139,7 +151,7 @@ function ShellInner() {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
-  const showWorkout = !running && tab === 'today' && active;
+  const showWorkout = mode === 'workout' && tab === 'today' && active;
   const showRun = running && tab === 'run' && !!track;
   const current = TABS.find((t) => t.id === tab);
 
@@ -197,7 +209,15 @@ function ShellInner() {
             (tab === 'progress' || tab === 'run-progress') && !showWorkout && 'xl:max-w-6xl',
           )}
         >
-          {showRun ? (
+          {eating ? (
+            tab === 'food-progress' ? (
+              <FoodProgress />
+            ) : tab === 'food-calc' ? (
+              <FoodCalories />
+            ) : (
+              <FoodDiary onSetGoal={() => setTab('food-calc')} />
+            )
+          ) : showRun ? (
             <ActiveRun onFinished={setSavedRun} />
           ) : running ? (
             tab === 'runs' ? (
@@ -228,7 +248,7 @@ function ShellInner() {
           state === 'expanded' ? 'md:left-[var(--sidebar-width)]' : 'md:left-0',
         )}
       >
-        {!running && active && !showWorkout && <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />}
+        {mode === 'workout' && active && !showWorkout && <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />}
         {running && track && !showRun && (
           <ResumeBar name={track.kind === 'walk' ? 'Walk' : 'Run'} hint={track.status === 'paused' ? 'Paused' : 'In progress'} onClick={() => setTab('run')} />
         )}
