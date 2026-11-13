@@ -7,6 +7,7 @@ import type {
   DayPlan,
   PersonalRecord,
   PlanItem,
+  RunEntry,
   SetEntry,
   Settings,
   Workout,
@@ -37,7 +38,8 @@ function initialState(): AppState {
     restEndsAt: null,
     restTotal: 0,
     bodyWeights: [],
-    settings: { restSeconds: 90, defaultReps: 10, unit: 'kg' },
+    runs: [],
+    settings: { restSeconds: 90, defaultReps: 10, unit: 'kg', mode: 'workout' },
     onboarded: false,
   };
 }
@@ -72,6 +74,7 @@ function normalize(raw: unknown): AppState | null {
     restSeconds: r.settings?.restSeconds ?? base.settings.restSeconds,
     defaultReps: r.settings?.defaultReps ?? r.settings?.repMax ?? base.settings.defaultReps,
     unit: r.settings?.unit === 'lb' ? 'lb' : 'kg',
+    mode: r.settings?.mode === 'running' ? 'running' : 'workout',
   };
   const fixRange = <T extends { repMin?: number; repMax?: number }>(x: T) => ({
     ...x,
@@ -87,6 +90,13 @@ function normalize(raw: unknown): AppState | null {
   });
   const validWorkout = (w: unknown): w is Workout =>
     isObj(w) && typeof w.id === 'string' && typeof w.startedAt === 'number' && Array.isArray(w.exercises);
+  const validRun = (x: unknown): x is RunEntry =>
+    isObj(x) &&
+    typeof x.id === 'string' &&
+    typeof x.startedAt === 'number' &&
+    typeof x.durationS === 'number' &&
+    typeof x.distanceM === 'number' &&
+    (x.kind === 'run' || x.kind === 'walk');
   const validPlan = (p: unknown): p is DayPlan =>
     isObj(p) && typeof p.day === 'number' && p.day >= 0 && p.day <= 6 && Array.isArray(p.items);
   const plans = Array.isArray(r.plans)
@@ -108,6 +118,7 @@ function normalize(raw: unknown): AppState | null {
     bodyWeights: Array.isArray(r.bodyWeights)
       ? r.bodyWeights.filter((b) => isObj(b) && typeof b.kg === 'number' && typeof b.date === 'string')
       : [],
+    runs: Array.isArray(r.runs) ? r.runs.filter(validRun).sort((a, b) => b.startedAt - a.startedAt) : [],
     settings,
     // Data saved before the first-run picker existed belongs to someone who already set things up.
     onboarded: r.onboarded ?? true,
@@ -169,6 +180,7 @@ function mergeGuest(user: AppState, guest: AppState): AppState {
   const byId = <T extends { id: string }>(a: T[], b: T[]) => [...new Map([...b, ...a].map((x) => [x.id, x])).values()];
   const workouts = byId(user.workouts, guest.workouts).sort((a, b) => b.startedAt - a.startedAt);
   const bodyWeights = byId(user.bodyWeights, guest.bodyWeights).sort((a, b) => b.date.localeCompare(a.date));
+  const runs = byId(user.runs, guest.runs).sort((a, b) => b.startedAt - a.startedAt);
   const exercises = byId(user.exercises, guest.exercises);
   const fresh = !user.onboarded;
   return {
@@ -176,6 +188,7 @@ function mergeGuest(user: AppState, guest: AppState): AppState {
     exercises,
     workouts,
     bodyWeights,
+    runs,
     plans: fresh ? guest.plans : user.plans,
     settings: fresh ? guest.settings : user.settings,
     onboarded: user.onboarded || guest.onboarded,
@@ -197,7 +210,7 @@ export function switchUser(uid: string | null): { movedGuestData: boolean } {
       const raw = localStorage.getItem(GUEST_KEY);
       const guest = raw ? normalize(JSON.parse(raw)) : null;
       if (raw && guest) {
-        const hasData = guest.workouts.length > 0 || guest.bodyWeights.length > 0 || guest.exercises.some((e) => e.custom);
+        const hasData = guest.workouts.length > 0 || guest.runs.length > 0 || guest.bodyWeights.length > 0 || guest.exercises.some((e) => e.custom);
         if (hasData || guest.onboarded) {
           next = mergeGuest(next, guest);
           movedGuestData = hasData;
@@ -548,6 +561,19 @@ export const actions = {
       const entry: BodyWeightEntry = { id: uid(), date, kg };
       return { ...s, bodyWeights: [entry, ...rest].sort((a, b) => b.date.localeCompare(a.date)) };
     });
+  },
+
+  /** Save a finished (or hand-entered) run. */
+  addRun(run: RunEntry) {
+    set((s) => ({ ...s, runs: [run, ...s.runs.filter((r) => r.id !== run.id)].sort((a, b) => b.startedAt - a.startedAt) }));
+  },
+
+  updateRun(id: string, patch: Partial<Omit<RunEntry, 'id'>>) {
+    set((s) => ({ ...s, runs: s.runs.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
+  },
+
+  deleteRun(id: string) {
+    set((s) => ({ ...s, runs: s.runs.filter((r) => r.id !== id) }));
   },
 
   deleteBodyWeight(id: string) {

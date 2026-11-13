@@ -2,6 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { useSyncExternalStore } from 'react';
+import { forgetActiveRun } from './run/tracker';
 import { forgetUserOnDevice } from './store';
 import { supabase } from './supabase/client';
 import { flush, hasUnsyncedChanges, stopSync } from './sync';
@@ -79,6 +80,7 @@ export async function signOut(): Promise<void> {
   await flush();
   stopSync();
   if (id) forgetUserOnDevice(id);
+  forgetActiveRun();
   await supabase().auth.signOut();
   window.location.assign('/login');
 }
@@ -100,6 +102,7 @@ export async function deleteAccount(): Promise<string | null> {
   if (error) return error.message;
   stopSync();
   if (id) forgetUserOnDevice(id);
+  forgetActiveRun();
   await supabase().auth.signOut({ scope: 'local' });
   window.location.assign('/login');
   return null;

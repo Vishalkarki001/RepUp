@@ -37,6 +37,11 @@ export default function PrivacyPage() {
             body-weight entries and app settings (like kg or lb).
           </li>
           <li>
+            <b>Runs and walks (only if you use running mode):</b> time, distance, pace, estimated steps and calories, the weather at
+            the start, and your route on the map. Your location is used only while you are tracking a run, after you allow it, and
+            only the route of that run is saved.
+          </li>
+          <li>
             <b>Basic account activity:</b> when you signed up, last signed in and last opened the app.
           </li>
           <li>
@@ -44,7 +49,7 @@ export default function PrivacyPage() {
             cookie that keeps you signed in. Logging out removes the copy from that device.
           </li>
         </ul>
-        <p className="mt-3">We do not collect payment details, your location, your contacts or anything from your phone’s other apps.</p>
+        <p className="mt-3">We do not collect payment details, your location outside of a run you are tracking, your contacts or anything from your phone’s other apps.</p>
       </section>
 
       <section>
@@ -70,7 +75,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>Service providers</b> that host the app for us: Supabase (database, login and photo storage, servers in Mumbai,
-            India), Vercel (website hosting) and Google (sign-in with Google, and the Gmail account that sends our emails). They
+            India), Vercel (website hosting), Google (sign-in with Google, and the Gmail account that sends our emails), Open-Meteo (the
+            weather when a run starts; it receives your position rounded to about 1 km) and OpenStreetMap (map images of your route). They
             process data only to provide their service to us.
           </li>
         </ul>

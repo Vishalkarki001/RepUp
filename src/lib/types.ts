@@ -98,12 +98,44 @@ export interface BodyWeightEntry {
 
 export type WeightUnit = 'kg' | 'lb';
 
+/** Which side of the app is shown: gym workouts or running. */
+export type AppMode = 'workout' | 'running';
+
+export type RunKind = 'run' | 'walk';
+
+/** One finished run or walk. Distances in metres, times in seconds. */
+export interface RunEntry {
+  id: string;
+  kind: RunKind;
+  startedAt: number;
+  finishedAt: number;
+  /** Moving time (pauses not counted). */
+  durationS: number;
+  distanceM: number;
+  /** Counted with the motion sensor, or estimated from the distance. Null when unknown. */
+  steps: number | null;
+  stepsSource?: 'sensor' | 'estimate';
+  /** Estimate from distance and body weight. */
+  calories: number;
+  tempC?: number | null;
+  weatherCode?: number | null;
+  /** Simplified GPS route: [latitude, longitude] points. */
+  route?: [number, number][];
+  /** Seconds taken for each full kilometre. */
+  splits?: number[];
+  /** Seconds the GPS was interrupted (screen off / app in the background). */
+  gapS?: number;
+  source: 'gps' | 'manual';
+  note?: string;
+}
+
 export interface Settings {
   restSeconds: number;
   /** Reps used when an exercise is added without a plan. */
   defaultReps: number;
   /** Label + plate/step sizes. Numbers are stored as typed, not converted. */
   unit: WeightUnit;
+  mode: AppMode;
 }
 
 export interface AppState {
@@ -115,6 +147,7 @@ export interface AppState {
   restEndsAt: number | null;
   restTotal: number;
   bodyWeights: BodyWeightEntry[]; // newest first
+  runs: RunEntry[]; // newest first
   settings: Settings;
   /** False until the first-run plan picker has been answered. */
   onboarded: boolean;

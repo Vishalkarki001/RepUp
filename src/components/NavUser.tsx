@@ -2,7 +2,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronsUpDown, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus } from 'lucide-react';
+import { ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useAccount, type Account } from '@/lib/account';
+import { useRun } from '@/lib/run/tracker';
+import { actions, useAppState } from '@/lib/store';
 import { syncNow } from '@/lib/sync';
 import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
@@ -64,7 +67,10 @@ export function AccountMenu({
   const account = useAccount();
   const router = useRouter();
   const [open, setOpen] = useState<null | 'profile' | 'settings'>(null);
+  const { settings } = useAppState();
+  const { track } = useRun();
   if (!account) return null;
+  const running = settings.mode === 'running';
 
   return (
     <>
@@ -86,6 +92,20 @@ export function AccountMenu({
               <DropdownMenuSeparator />
             </>
           )}
+          {/* Only the other mode is offered. */}
+          <DropdownMenuItem
+            className="font-medium"
+            disabled={running && !!track}
+            onSelect={() => {
+              actions.updateSettings({ mode: running ? 'workout' : 'running' });
+              toast.success(running ? 'Workout mode' : 'Running mode');
+            }}
+          >
+            {running ? <Dumbbell /> : <Footprints />}
+            {running ? 'Workout mode' : 'Running mode'}
+            {running && track && <span className="ml-auto text-xs text-muted-foreground">finish your run first</span>}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onSelect={() => setOpen('profile')}>
               <UserPen /> Edit profile

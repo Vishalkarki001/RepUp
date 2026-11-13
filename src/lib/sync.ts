@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { actions, getState, subscribeState, userKey } from './store';
 import { supabase } from './supabase/client';
-import type { AppState, BodyWeightEntry, DayPlan, Exercise, Workout } from './types';
+import type { AppState, BodyWeightEntry, DayPlan, Exercise, RunEntry, Workout } from './types';
 
 /**
  * Cloud sync with Supabase.
@@ -21,19 +21,25 @@ import type { AppState, BodyWeightEntry, DayPlan, Exercise, Workout } from './ty
  * their own rows.
  */
 
-type Table = 'user_settings' | 'exercises' | 'plans' | 'workouts' | 'body_weights';
+type Table = 'user_settings' | 'exercises' | 'plans' | 'workouts' | 'body_weights' | 'runs';
 type Row = Record<string, unknown>;
 type Rows = Record<Table, Map<string, Row>>;
 type Snapshot = Record<Table, Record<string, string>>;
 
-const TABLES: Table[] = ['user_settings', 'exercises', 'plans', 'workouts', 'body_weights'];
+const TABLES: Table[] = ['user_settings', 'exercises', 'plans', 'workouts', 'body_weights', 'runs'];
 const CONFLICT: Record<Table, string> = {
   user_settings: 'user_id',
   exercises: 'user_id,id',
   plans: 'user_id,day',
   workouts: 'user_id,id',
   body_weights: 'user_id,id',
+  runs: 'user_id,id',
 };
+/** Tables that may not exist yet while a database update is being applied: treated as empty until they do. */
+const OPTIONAL: Table[] = ['runs'];
+const missingTables = new Set<Table>();
+const isMissingTable = (e: { code?: string; message?: string }) =>
+  e.code === '42P01' || e.code === 'PGRST205' || /could not find the table|does not exist/i.test(e.message ?? '');
 const PUSH_DELAY_MS = 1500;
 
 /* ------------------------------------------------------------------ */
@@ -41,12 +47,13 @@ const PUSH_DELAY_MS = 1500;
 /* ------------------------------------------------------------------ */
 
 function rowsFromState(s: AppState, uid: string): Rows {
-  const r: Rows = { user_settings: new Map(), exercises: new Map(), plans: new Map(), workouts: new Map(), body_weights: new Map() };
+  const r: Rows = { user_settings: new Map(), exercises: new Map(), plans: new Map(), workouts: new Map(), body_weights: new Map(), runs: new Map() };
   r.user_settings.set(uid, {
     user_id: uid,
     rest_seconds: s.settings.restSeconds,
     default_reps: s.settings.defaultReps,
     unit: s.settings.unit,
+    mode: s.settings.mode,
     onboarded: s.onboarded,
   });
   for (const e of s.exercises) {
@@ -82,7 +89,31 @@ function rowsFromState(s: AppState, uid: string): Rows {
   for (const b of s.bodyWeights) {
     r.body_weights.set(b.id, { user_id: uid, id: b.id, date: b.date, kg: b.kg, deleted: false });
   }
+  for (const x of s.runs) r.runs.set(x.id, runRow(uid, x));
   return r;
+}
+
+function runRow(uid: string, x: RunEntry): Row {
+  return {
+    user_id: uid,
+    id: x.id,
+    kind: x.kind,
+    started_at: new Date(x.startedAt).toISOString(),
+    finished_at: new Date(x.finishedAt).toISOString(),
+    duration_s: Math.round(x.durationS),
+    distance_m: Math.round(x.distanceM),
+    steps: x.steps === null || x.steps === undefined ? null : Math.round(x.steps),
+    steps_source: x.stepsSource ?? null,
+    calories: Math.round(x.calories),
+    temp_c: x.tempC === null || x.tempC === undefined ? null : Number(x.tempC),
+    weather_code: x.weatherCode === null || x.weatherCode === undefined ? null : Number(x.weatherCode),
+    route: x.route ?? [],
+    splits: x.splits ?? [],
+    gap_s: Math.round(x.gapS ?? 0),
+    source: x.source,
+    note: x.note ?? null,
+    deleted: false,
+  };
 }
 
 const keyOf = (t: Table, row: Row) => (t === 'user_settings' ? String(row.user_id) : t === 'plans' ? String(row.day) : String(row.id));
@@ -106,7 +137,14 @@ function normalizeRemote(t: Table, r: Row): Row {
   const iso = (v: unknown) => (v ? new Date(String(v)).toISOString() : null);
   switch (t) {
     case 'user_settings':
-      return { user_id: r.user_id, rest_seconds: Number(r.rest_seconds), default_reps: Number(r.default_reps), unit: r.unit, onboarded: Boolean(r.onboarded) };
+      return {
+        user_id: r.user_id,
+        rest_seconds: Number(r.rest_seconds),
+        default_reps: Number(r.default_reps),
+        unit: r.unit,
+        mode: r.mode === 'running' ? 'running' : 'workout',
+        onboarded: Boolean(r.onboarded),
+      };
     case 'exercises':
       return { user_id: r.user_id, id: r.id, name: r.name, muscle: r.muscle, equipment: r.equipment, custom: Boolean(r.custom), note: r.note ?? null, deleted: false };
     case 'plans':
@@ -125,7 +163,31 @@ function normalizeRemote(t: Table, r: Row): Row {
       };
     case 'body_weights':
       return { user_id: r.user_id, id: r.id, date: r.date, kg: Number(r.kg), deleted: false };
+    case 'runs':
+      return runRow(String(r.user_id), runFromRow(r));
   }
+}
+
+function runFromRow(r: Row): RunEntry {
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+  return {
+    id: String(r.id),
+    kind: r.kind === 'walk' ? 'walk' : 'run',
+    startedAt: Date.parse(String(r.started_at)),
+    finishedAt: Date.parse(String(r.finished_at)),
+    durationS: Number(r.duration_s),
+    distanceM: Number(r.distance_m),
+    steps: num(r.steps),
+    stepsSource: r.steps_source === 'sensor' || r.steps_source === 'estimate' ? r.steps_source : undefined,
+    calories: Number(r.calories),
+    tempC: num(r.temp_c),
+    weatherCode: num(r.weather_code),
+    route: Array.isArray(r.route) ? (r.route as [number, number][]) : [],
+    splits: Array.isArray(r.splits) ? (r.splits as number[]) : [],
+    gapS: Number(r.gap_s ?? 0),
+    source: r.source === 'manual' ? 'manual' : 'gps',
+    note: (r.note as string | null) ?? undefined,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,6 +213,7 @@ function applyRemote(s: AppState, remote: Record<Table, Row[]>, dirty: Record<Ta
         restSeconds: Number(remoteSettings.rest_seconds),
         defaultReps: Number(remoteSettings.default_reps),
         unit: remoteSettings.unit === 'lb' ? 'lb' : 'kg',
+        mode: remoteSettings.mode === 'running' ? 'running' : 'workout',
       };
     }
     onboarded = remoteOnboarded || (firstSync && s.onboarded);
@@ -221,7 +284,16 @@ function applyRemote(s: AppState, remote: Record<Table, Row[]>, dirty: Record<Ta
   }
   bodyWeights.sort((a, b) => b.date.localeCompare(a.date));
 
-  return { ...s, exercises, plans, workouts, bodyWeights, settings, onboarded };
+  let runs = [...s.runs];
+  for (const row of remote.runs) {
+    const id = String(row.id);
+    if (dirty.runs.has(id)) continue;
+    runs = runs.filter((x) => x.id !== id);
+    if (!row.deleted) runs.push(runFromRow(row));
+  }
+  runs.sort((a, b) => b.startedAt - a.startedAt);
+
+  return { ...s, exercises, plans, workouts, bodyWeights, runs, settings, onboarded };
 }
 
 /* ------------------------------------------------------------------ */
@@ -254,7 +326,7 @@ let uid: string | null = null;
 let snapshot: Snapshot | null = null;
 /** The synced parts of the state as they were at the last successful sync (fast "anything changed?" check). */
 let syncedRefs: unknown[] | null = null;
-const syncedParts = (s: AppState) => [s.exercises, s.plans, s.workouts, s.bodyWeights, s.settings, s.onboarded];
+const syncedParts = (s: AppState) => [s.exercises, s.plans, s.workouts, s.bodyWeights, s.runs, s.settings, s.onboarded];
 const markSynced = () => {
   syncedRefs = syncedParts(getState());
 };
@@ -265,7 +337,7 @@ let running: Promise<void> = Promise.resolve();
 let stopListening: (() => void) | null = null;
 
 const snapKey = (id: string) => `${userKey(id)}:synced`;
-const emptySnapshot = (): Snapshot => ({ user_settings: {}, exercises: {}, plans: {}, workouts: {}, body_weights: {} });
+const emptySnapshot = (): Snapshot => ({ user_settings: {}, exercises: {}, plans: {}, workouts: {}, body_weights: {}, runs: {} });
 
 function loadSnapshot(id: string): Snapshot | null {
   try {
@@ -308,10 +380,19 @@ async function pullNow(): Promise<void> {
   if (isOffline()) return setStatus({ state: 'offline' });
   setStatus({ state: 'syncing' });
   const db = supabase();
-  const results = await Promise.all(TABLES.map((t) => db.from(t).select('*')));
+  const raw = await Promise.all(TABLES.map((t) => db.from(t).select('*')));
+  const results = raw.map((r, i) => {
+    const t = TABLES[i];
+    if (r.error && OPTIONAL.includes(t) && isMissingTable(r.error)) {
+      missingTables.add(t);
+      return { data: [] as Row[], error: null };
+    }
+    if (!r.error) missingTables.delete(t);
+    return { data: (r.data ?? []) as Row[], error: r.error };
+  });
   const failed = results.find((r) => r.error);
   if (failed?.error) throw failed.error;
-  const remote = Object.fromEntries(TABLES.map((t, i) => [t, (results[i].data ?? []) as Row[]])) as Record<Table, Row[]>;
+  const remote = Object.fromEntries(TABLES.map((t, i) => [t, results[i].data])) as Record<Table, Row[]>;
 
   const firstSync = snapshot === null;
   const snap = snapshot ?? emptySnapshot();
@@ -347,6 +428,7 @@ async function pushNow(): Promise<void> {
   const db = supabase();
   let sent = 0;
   for (const t of TABLES) {
+    if (missingTables.has(t)) continue; // not in the database yet: keep it on the device and send it later
     const changed: Row[] = [];
     for (const [k, row] of rows[t]) if (snap[t][k] !== fingerprint(row)) changed.push(row);
     const removed: Row[] = [];

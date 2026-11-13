@@ -292,3 +292,110 @@ describe('website routes', () => {
     assert.ok(!MARKETING_PATHS.some((p) => p.startsWith('/login') || p.startsWith('/auth')));
   });
 });
+
+describe('running', async () => {
+  const core = await import('../src/lib/run/core');
+  const { haversine, newTrack, begin, addFix, pause, resume, movingMs, finishRun, estimateCalories, estimateSteps, formatPace, formatDuration, paceSecPerKm, StepDetector, thin } = core;
+  // ~0.0001° latitude ≈ 11.1 m
+  const LAT = 12.9716, LNG = 77.5946, STEP = 0.0001;
+  const fix = (i: number, t: number, acc = 5) => ({ lat: LAT + i * STEP, lng: LNG, acc, t });
+
+  test('haversine: 0.0001° of latitude ≈ 11 m', () => {
+    const d = haversine(LAT, LNG, LAT + STEP, LNG);
+    assert.ok(d > 10.9 && d < 11.3, String(d));
+  });
+  test('distance adds up along a straight line; jitter and bad accuracy ignored', () => {
+    let s = begin(newTrack('run', 0), 0);
+    for (let i = 0; i <= 10; i++) s = addFix(s, fix(i, i * 4000), i * 4000); // 11 m every 4 s ≈ 2.8 m/s
+    assert.ok(Math.abs(s.distanceM - 111) < 3, String(s.distanceM));
+    const before = s.distanceM;
+    s = addFix(s, { lat: LAT + 10 * STEP + 0.00001, lng: LNG, acc: 5, t: 44_000 }, 44_000); // 1 m wobble
+    s = addFix(s, fix(20, 48_000, 80), 48_000); // 80 m accuracy: ignored
+    assert.equal(s.distanceM, before);
+  });
+  test('GPS jump (impossible speed) is not counted', () => {
+    let s = begin(newTrack('run', 0), 0);
+    s = addFix(s, fix(0, 0), 0);
+    s = addFix(s, fix(100, 2000), 2000); // 1.1 km in 2 s
+    assert.equal(s.distanceM, 0);
+  });
+  test('no distance across a pause; paused time not counted', () => {
+    let s = begin(newTrack('walk', 0), 0);
+    s = addFix(s, fix(0, 0), 0);
+    s = addFix(s, fix(1, 10_000), 10_000);
+    s = pause(s, 10_000);
+    s = resume(s, 70_000); // 60 s paused, moved 100 m meanwhile
+    s = addFix(s, fix(10, 70_000), 70_000);
+    s = addFix(s, fix(11, 80_000), 80_000);
+    assert.ok(Math.abs(s.distanceM - 22.2) < 1, String(s.distanceM));
+    assert.equal(Math.round(movingMs(s, 80_000) / 1000), 20);
+  });
+  test('km splits and the saved run', () => {
+    let s = begin(newTrack('run', 0), 0);
+    for (let i = 0; i <= 200; i++) s = addFix(s, fix(i, i * 4000), i * 4000); // ≈ 2.22 km at ~2.8 m/s
+    assert.equal(s.kmMarks.length, 2);
+    const run = finishRun(s, 800_000, { id: 'r1', weightKg: 70, sensorSteps: null });
+    assert.equal(run.splits!.length, 2);
+    assert.ok(run.splits![0] > 300 && run.splits![0] < 400, String(run.splits));
+    assert.equal(run.stepsSource, 'estimate');
+    assert.equal(run.calories, estimateCalories(run.distanceM, 'run', 70));
+    assert.ok(run.route!.length > 10);
+  });
+  test('calories, steps, pace and time formatting', () => {
+    assert.equal(estimateCalories(5000, 'run', 70), 350);
+    assert.equal(estimateCalories(5000, 'walk', 70), 175);
+    assert.equal(estimateSteps(1000, 'walk'), 1333);
+    assert.equal(formatPace(paceSecPerKm(5000, 1800)), `6'00"`);
+    assert.equal(formatPace(null), '–');
+    assert.equal(formatDuration(3725), '1:02:05');
+    assert.equal(formatDuration(65), '1:05');
+    assert.equal(thin(Array.from({ length: 5000 }, (_, i) => i), 100).length, 100);
+  });
+  test('step detector counts rhythmic bounces, not a still phone', () => {
+    const d = new StepDetector();
+    for (let t = 0; t < 2000; t += 20) d.push(9.81, t);
+    assert.equal(d.steps, 0);
+    for (let t = 2000; t < 12_000; t += 20) d.push(9.81 + 6 * Math.sin(((t - 2000) / 1000) * 2 * Math.PI * 2), t); // 2 steps/s for 10 s
+    assert.ok(d.steps >= 17 && d.steps <= 22, String(d.steps));
+  });
+  test('store: runs saved, updated, deleted and kept in backups', () => {
+    actions.updateSettings({ mode: 'running' });
+    actions.addRun({ id: 'run1', kind: 'run', startedAt: 1, finishedAt: 2, durationS: 60, distanceM: 200, steps: 200, calories: 14, source: 'manual' });
+    actions.updateRun('run1', { note: 'easy' });
+    assert.equal(state().runs[0].note, 'easy');
+    assert.equal(state().settings.mode, 'running');
+    assert.ok(actions.importJSON(JSON.stringify({ ...state(), runs: [...state().runs, { id: 'bad' }] })));
+    assert.equal(state().runs.length, 1);
+    actions.deleteRun('run1');
+    assert.equal(state().runs.length, 0);
+    actions.updateSettings({ mode: 'workout' });
+  });
+});
+
+describe('GPS smoothing', async () => {
+  const { GpsSmoother, SMOOTH_SPEED, newTrack, begin, addFix } = await import('../src/lib/run/core');
+  // Seeded random numbers so the test is the same every time.
+  let seed = 42;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32) * 2 - 1;
+  const M = 1 / 111_111; // degrees per metre (latitude)
+  test('standing still with noisy GPS: smoothing removes most fake distance', () => {
+    const sm = new GpsSmoother(SMOOTH_SPEED.run);
+    let raw = begin(newTrack('run', 0), 0), smooth = raw;
+    for (let i = 0; i < 120; i++) {
+      const f = { lat: 12.97 + rnd() * 6 * M, lng: 77.59 + rnd() * 6 * M, acc: 8, t: i * 1000 };
+      raw = addFix(raw, f, f.t);
+      smooth = addFix(smooth, { ...sm.push(f), acc: f.acc }, f.t);
+    }
+    assert.ok(smooth.distanceM < raw.distanceM / 2, `raw ${raw.distanceM.toFixed(0)} m vs smoothed ${smooth.distanceM.toFixed(0)} m`);
+  });
+  test('running 1 km with noisy GPS: smoothed distance stays close to the truth', () => {
+    const sm = new GpsSmoother(SMOOTH_SPEED.run);
+    let smooth = begin(newTrack('run', 0), 0);
+    for (let i = 0; i <= 333; i++) {
+      // 3 m/s north for 333 s ≈ 1 km, ±5 m noise
+      const f = { lat: 12.97 + (i * 3 + rnd() * 5) * M, lng: 77.59 + rnd() * 5 * M, acc: 6, t: i * 1000 };
+      smooth = addFix(smooth, { ...sm.push(f), acc: f.acc }, f.t);
+    }
+    assert.ok(smooth.distanceM > 930 && smooth.distanceM < 1080, String(smooth.distanceM));
+  });
+});

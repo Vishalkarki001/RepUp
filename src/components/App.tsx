@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChartLine, Dumbbell, History, ListChecks, type LucideIcon } from 'lucide-react';
+import { ChartLine, Dumbbell, Footprints, History, ListChecks, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,7 +25,8 @@ import { switchUser, useAppState } from '@/lib/store';
 import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { startSync, useSyncStatus } from '@/lib/sync';
-import type { WorkoutSummary } from '@/lib/types';
+import { useRun } from '@/lib/run/tracker';
+import type { RunEntry, WorkoutSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
 import { NavUser } from './NavUser';
@@ -36,8 +37,18 @@ import { Onboarding } from './screens/Onboarding';
 import { ProgressScreen } from './screens/Progress';
 import { SummaryModal } from './screens/SummaryModal';
 import { TodayScreen } from './screens/Today';
+import { ActiveRun } from './run/ActiveRun';
+import { RunDetail } from './run/RunDetail';
+import { RunHistory, RunHome, RunProgress } from './run/RunScreens';
 
-type Tab = 'today' | 'history' | 'progress' | 'library';
+type Tab = 'today' | 'history' | 'progress' | 'library' | 'run' | 'runs' | 'run-progress';
+
+/** Running mode: its own three tabs. */
+const RUN_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: 'run', label: 'Run', icon: Footprints },
+  { id: 'runs', label: 'History', icon: History },
+  { id: 'run-progress', label: 'Progress', icon: ChartLine },
+];
 
 const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Workout', icon: Dumbbell },
@@ -102,13 +113,21 @@ function Shell() {
 }
 
 function ShellInner() {
-  const { active, onboarded } = useAppState();
+  const { active, onboarded, settings } = useAppState();
+  const running = settings.mode === 'running';
   // Admins open the admin panel (/admin) from the account menu, so the tabs are the same for everyone.
-  const TABS = BASE_TABS;
+  const TABS = running ? RUN_TABS : BASE_TABS;
   useSyncToasts();
-  const [tab, setTab] = useState<Tab>('today');
+  const [tab, setTab] = useState<Tab>(running ? 'run' : 'today');
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [savedRun, setSavedRun] = useState<RunEntry | null>(null);
   const { state } = useSidebar();
+  const { track } = useRun();
+
+  // Switching mode (account menu) opens that mode's first tab.
+  useEffect(() => {
+    setTab(running ? 'run' : 'today');
+  }, [running]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
@@ -120,7 +139,8 @@ function ShellInner() {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
-  const showWorkout = tab === 'today' && active;
+  const showWorkout = !running && tab === 'today' && active;
+  const showRun = running && tab === 'run' && !!track;
   const current = TABS.find((t) => t.id === tab);
 
   return (
@@ -167,17 +187,27 @@ function ShellInner() {
         {/* Desktop top bar: open/close the sidebar */}
         <header className="hidden h-14 items-center gap-2 border-b px-4 md:flex">
           <SidebarTrigger className="-ml-1" />
-          <span className="text-sm font-medium text-muted-foreground">{showWorkout ? 'Workout in progress' : current?.label}</span>
+          <span className="text-sm font-medium text-muted-foreground">{showWorkout ? 'Workout in progress' : showRun ? `${track?.kind === 'walk' ? 'Walk' : 'Run'} in progress` : current?.label}</span>
         </header>
 
         <div
           className={cn(
             'mx-auto w-full max-w-3xl px-4 pt-safe pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pb-28',
             // Progress shows a 2-column grid of charts on wide screens.
-            tab === 'progress' && !showWorkout && 'xl:max-w-6xl',
+            (tab === 'progress' || tab === 'run-progress') && !showWorkout && 'xl:max-w-6xl',
           )}
         >
-          {showWorkout ? (
+          {showRun ? (
+            <ActiveRun onFinished={setSavedRun} />
+          ) : running ? (
+            tab === 'runs' ? (
+              <RunHistory />
+            ) : tab === 'run-progress' ? (
+              <RunProgress />
+            ) : (
+              <RunHome />
+            )
+          ) : showWorkout ? (
             <ActiveWorkout onFinished={setSummary} />
           ) : tab === 'today' ? (
             <TodayScreen />
@@ -198,12 +228,15 @@ function ShellInner() {
           state === 'expanded' ? 'md:left-[var(--sidebar-width)]' : 'md:left-0',
         )}
       >
-        {active && !showWorkout && <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />}
+        {!running && active && !showWorkout && <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />}
+        {running && track && !showRun && (
+          <ResumeBar name={track.kind === 'walk' ? 'Walk' : 'Run'} hint={track.status === 'paused' ? 'Paused' : 'In progress'} onClick={() => setTab('run')} />
+        )}
       </div>
 
       {/* Mobile tab bar */}
       <nav
-        className={cn('fixed inset-x-0 bottom-0 z-30 grid border-t', TABS.length === 5 ? 'grid-cols-5' : 'grid-cols-4', 'bg-background/90 pb-safe backdrop-blur-lg md:hidden')}
+        className={cn('fixed inset-x-0 bottom-0 z-30 grid border-t', TABS.length === 3 ? 'grid-cols-3' : 'grid-cols-4', 'bg-background/90 pb-safe backdrop-blur-lg md:hidden')}
         aria-label="Main"
       >
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -225,12 +258,13 @@ function ShellInner() {
       </nav>
 
       {summary && <SummaryModal summary={summary} onClose={() => setSummary(null)} />}
+      {savedRun && <RunDetail run={savedRun} justSaved onClose={() => setSavedRun(null)} />}
       {!onboarded && <Onboarding />}
     </>
   );
 }
 
-function ResumeBar({ name, onClick }: { name: string; onClick: () => void }) {
+function ResumeBar({ name, hint = 'Workout in progress', onClick }: { name: string; hint?: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -239,7 +273,7 @@ function ResumeBar({ name, onClick }: { name: string; onClick: () => void }) {
       <span className="size-2.5 animate-soft-pulse rounded-full bg-success" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold">{name}</span>
-        <span className="block text-xs text-muted-foreground">Workout in progress</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
       </span>
       <Button size="sm" asChild>
         <span>Continue</span>
