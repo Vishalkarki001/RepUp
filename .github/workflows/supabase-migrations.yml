@@ -3,12 +3,17 @@
 # Runs when a push to main changes supabase/migrations/ (or this file), and can
 # also be started by hand: GitHub → Actions → "Database migrations" → Run workflow.
 #
-# Needs two repository secrets (GitHub → Settings → Secrets and variables → Actions):
-#   SUPABASE_ACCESS_TOKEN  – from supabase.com → Account → Access Tokens
+# Needs one repository secret (GitHub → Settings → Secrets and variables → Actions):
 #   SUPABASE_DB_PASSWORD   – the project's database password
 #
 # Only migrations that haven't been applied yet are run, in filename order.
 # If a migration fails, the job stops with an error and nothing after it runs (the website keeps working).
+#
+# Notes:
+# - Connects through Supabase's connection pooler (IPv4). GitHub runners have no IPv6,
+#   and the direct database address is IPv6-only.
+# - Supabase CLI 3.x asks "are you sure?" before changing a database; --yes answers it
+#   (this job can't ask anyone).
 
 name: Database migrations
 
@@ -33,9 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: wmqbujfohlpkwrdotdfx
+      SUPABASE_POOLER_HOST: aws-1-ap-south-1.pooler.supabase.com
+      # Refuse to talk to the database without encryption.
+      PGSSLMODE: require
     steps:
       - uses: actions/checkout@v4
 
@@ -43,23 +50,23 @@ jobs:
         with:
           version: 3.1.0
 
-      - name: Check the secrets are set
+      - name: Build the database address
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
-            echo "::error::Add SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD in GitHub → Settings → Secrets and variables → Actions."
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::Add SUPABASE_DB_PASSWORD in GitHub → Settings → Secrets and variables → Actions."
             exit 1
           fi
-
-      - name: Link the Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+          PASS=$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')
+          echo "::add-mask::$PASS"
+          echo "DB_URL=postgresql://postgres.${SUPABASE_PROJECT_ID}:${PASS}@${SUPABASE_POOLER_HOST}:5432/postgres" >> "$GITHUB_ENV"
 
       # The first two migrations were applied by hand before this automation existed.
       # Mark them as applied so they are never run again (safe to repeat).
       - name: Record the migrations applied by hand
-        run: supabase migration repair --status applied 20261112000000 20261112010000 --remote --password "$SUPABASE_DB_PASSWORD"
+        run: supabase migration repair --status applied 20261112000000 20261112010000 --remote="$DB_URL" --yes
 
       - name: Show what will run
-        run: supabase db push --dry-run --remote --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --dry-run --remote="$DB_URL"
 
       - name: Apply new migrations
-        run: supabase db push --remote --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --remote="$DB_URL" --yes

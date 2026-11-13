@@ -339,7 +339,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate font-medium">{children}</dd>
+      <dd className="font-medium break-words">{children}</dd>
     </div>
   );
 }
@@ -370,14 +370,16 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: AdminUser; onClo
     <AlertDialog open onOpenChange={(o) => !o && !busy && onClose()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {displayName(user)} permanently?</AlertDialogTitle>
+          <AlertDialogTitle className="break-words">Delete {displayName(user)} permanently?</AlertDialogTitle>
           <AlertDialogDescription>
             Their account, {user.workouts} workout{user.workouts === 1 ? '' : 's'}, plans and photo will be deleted forever. They will be signed out.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <Field>
           <FieldLabel htmlFor="confirm-email">
-            Type <span className="font-mono font-semibold">{email}</span> to confirm
+            <span className="min-w-0">
+              Type <span className="font-mono font-semibold break-all">{email}</span> to confirm
+            </span>
           </FieldLabel>
           <Input
             id="confirm-email"

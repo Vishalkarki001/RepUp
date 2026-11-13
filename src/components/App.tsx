@@ -10,11 +10,15 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
+  SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { refreshProfile, setAccountFromUser } from '@/lib/account';
 import { switchUser, useAppState } from '@/lib/store';
@@ -89,12 +93,22 @@ export function App() {
 }
 
 function Shell() {
+  // Same shadcn layout as the admin panel: collapsible sidebar on desktop, bottom tabs on phones.
+  return (
+    <SidebarProvider>
+      <ShellInner />
+    </SidebarProvider>
+  );
+}
+
+function ShellInner() {
   const { active, onboarded } = useAppState();
   // Admins open the admin panel (/admin) from the account menu, so the tabs are the same for everyone.
   const TABS = BASE_TABS;
   useSyncToasts();
   const [tab, setTab] = useState<Tab>('today');
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const { state } = useSidebar();
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
@@ -106,23 +120,25 @@ function Shell() {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
-
   const showWorkout = tab === 'today' && active;
+  const current = TABS.find((t) => t.id === tab);
 
   return (
-    <SidebarProvider className="block min-h-dvh md:pl-60" style={{ '--sidebar-width': '15rem' } as React.CSSProperties}>
-      {/* Desktop sidebar (shadcn Sidebar, always expanded); phones use the bottom tab bar below */}
-      <Sidebar collapsible="none" className="fixed inset-y-0 left-0 z-30 hidden h-dvh border-r md:flex">
-        <SidebarHeader className="px-4 pt-5 pb-4">
+    <>
+      {/* Desktop sidebar (shadcn Sidebar); phones use the bottom tab bar below */}
+      <Sidebar collapsible="offcanvas">
+        <SidebarHeader className="px-4 pt-5 pb-3">
           <div className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon-192.png?v=3" alt="" className="size-8" />
-            <span className="wordmark text-xl">
+            <span className="wordmark text-lg">
               Rep<b>Up</b>
             </span>
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
+            <SidebarGroupLabel>Menu</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu aria-label="Main">
                 {TABS.map(({ id, label, icon: Icon }) => (
@@ -132,9 +148,8 @@ function Shell() {
                       onClick={() => setTab(id)}
                       aria-current={tab === id ? 'page' : undefined}
                       data-tab={id}
-                      className="h-9"
                     >
-                      <Icon className={cn(tab === id && 'text-brand')} />
+                      <Icon />
                       <span>{label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -148,31 +163,42 @@ function Shell() {
         </SidebarFooter>
       </Sidebar>
 
-      <main
+      <SidebarInset className="min-w-0">
+        {/* Desktop top bar: open/close the sidebar */}
+        <header className="hidden h-14 items-center gap-2 border-b px-4 md:flex">
+          <SidebarTrigger className="-ml-1" />
+          <span className="text-sm font-medium text-muted-foreground">{showWorkout ? 'Workout in progress' : current?.label}</span>
+        </header>
+
+        <div
+          className={cn(
+            'mx-auto w-full max-w-3xl px-4 pt-safe pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pb-28',
+            // Progress shows a 2-column grid of charts on wide screens.
+            tab === 'progress' && !showWorkout && 'xl:max-w-6xl',
+          )}
+        >
+          {showWorkout ? (
+            <ActiveWorkout onFinished={setSummary} />
+          ) : tab === 'today' ? (
+            <TodayScreen />
+          ) : tab === 'history' ? (
+            <HistoryScreen onStarted={() => setTab('today')} />
+          ) : tab === 'progress' ? (
+            <ProgressScreen />
+          ) : (
+            <LibraryScreen />
+          )}
+        </div>
+      </SidebarInset>
+
+      {/* "Continue workout" bar floats above the tab bar (and beside the sidebar on desktop) */}
+      <div
         className={cn(
-          'mx-auto w-full max-w-3xl px-4 pt-safe pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pb-28',
-          // Progress shows a 2-column grid of charts on wide screens.
-          tab === 'progress' && !showWorkout && 'xl:max-w-6xl',
+          'pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-3 md:bottom-5 md:px-8',
+          state === 'expanded' ? 'md:left-[var(--sidebar-width)]' : 'md:left-0',
         )}
       >
-        {showWorkout ? (
-          <ActiveWorkout onFinished={setSummary} />
-        ) : tab === 'today' ? (
-          <TodayScreen />
-        ) : tab === 'history' ? (
-          <HistoryScreen onStarted={() => setTab('today')} />
-        ) : tab === 'progress' ? (
-          <ProgressScreen />
-        ) : (
-          <LibraryScreen />
-        )}
-      </main>
-
-      {/* "Continue workout" bar floats above the tab bar */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] z-20 mx-auto flex w-full max-w-3xl flex-col gap-2 px-3 md:bottom-5 md:left-60 md:px-8">
-        {active && !showWorkout && (
-          <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />
-        )}
+        {active && !showWorkout && <ResumeBar name={active.name.trim() || 'Workout'} onClick={() => setTab('today')} />}
       </div>
 
       {/* Mobile tab bar */}
@@ -200,7 +226,7 @@ function Shell() {
 
       {summary && <SummaryModal summary={summary} onClose={() => setSummary(null)} />}
       {!onboarded && <Onboarding />}
-    </SidebarProvider>
+    </>
   );
 }
 

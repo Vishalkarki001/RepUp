@@ -172,8 +172,9 @@ function WorkoutSheet({ workout, onClose }: { workout: AdminWorkout | null; onCl
         <SheetHeader className="border-b">
           <SheetTitle className="pr-8">{workout.name || 'Workout'}</SheetTitle>
           <SheetDescription>{dateTime(workout.started_at)}</SheetDescription>
-          <p className="text-sm">
-            <span className="font-medium">{displayName(workout)}</span> <span className="text-muted-foreground">· {workout.user_email}</span>
+          <p className="min-w-0 text-sm">
+            <span className="font-medium">{displayName(workout)}</span>{' '}
+            <span className="break-all text-muted-foreground">· {workout.user_email}</span>
           </p>
           <p className="text-xs text-muted-foreground tabular">
             {t.exercises} exercises · {t.sets} sets · {Math.round(t.volume).toLocaleString('en-IN')} {workout.unit} lifted

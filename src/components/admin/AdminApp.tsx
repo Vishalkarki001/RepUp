@@ -147,12 +147,9 @@ function AdminShell() {
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon-192.png?v=3" alt="" className="size-8" />
-            <div className="leading-tight">
-              <span className="wordmark text-lg">
-                Rep<b>Up</b>
-              </span>
-              <p className="text-[11px] font-semibold tracking-wide text-destructive uppercase">Admin</p>
-            </div>
+            <span className="wordmark text-lg">
+              Rep<b>Up</b>
+            </span>
           </div>
         </SidebarHeader>
         <SidebarContent>

@@ -20,8 +20,9 @@ export function SectionTitle({ children, action, className }: { children: ReactN
 /** A number with a label underneath, e.g. "3 · workouts". */
 export function Stat({ value, label, className }: { value: ReactNode; label: ReactNode; className?: string }) {
   return (
-    <div className={cn('min-w-0 rounded-lg border bg-card px-3.5 py-3', className)}>
-      <div className="truncate text-xl font-semibold tracking-tight tabular">{value}</div>
+    <div className={cn('min-w-0 rounded-lg border bg-card px-3 py-3 sm:px-3.5', className)}>
+      {/* Never cut off a number: slightly smaller on tiny phones, and wrap (e.g. "112.5 kg") if it still doesn't fit. */}
+      <div className="text-lg leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] tabular min-[400px]:text-xl">{value}</div>
       <div className="mt-0.5 text-xs leading-tight text-muted-foreground">{label}</div>
     </div>
   );
