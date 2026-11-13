@@ -26,7 +26,11 @@ const FAQS: Faq[] = [
   },
   {
     q: 'Does RepUp have a rest timer or calorie counter?',
-    a: 'No. RepUp is kept simple on purpose: it records sets, reps and kg so you can beat last time. It does track body weight, but not food or calories.',
+    a: 'Not for gym workouts: Workout mode is kept simple on purpose and records sets, reps and kg so you can beat last time. Running mode (for runs and walks) has a run timer, GPS distance, pace and a rough calorie estimate. RepUp never tracks food.',
+  },
+  {
+    q: 'Can RepUp track my runs too?',
+    a: 'Yes. Switch to Running mode from the account menu: it tracks distance with GPS, moving time, pace, splits for every km and shows your route on a map. Keep the screen on and RepUp open while you run (phone in hand or an armband), because browsers pause GPS when the screen is off.',
   },
   {
     q: 'Can I make my own workout plan?',
@@ -90,7 +94,7 @@ export function HomeLanding() {
       </section>
 
       <Split title="Everything a gym log needs. Nothing it doesn’t." mock={<PhoneMock screen="progress" theme="light" />}>
-        <p className="-mt-2 mb-8 text-[#525252]">No timers, no feeds, no clutter. Just the numbers that make you stronger.</p>
+        <p className="-mt-2 mb-8 text-[#525252]">No rest timers, no feeds, no clutter in the gym. Just the numbers that make you stronger.</p>
         <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
           {FEATURES.map((f) => (
             <li key={f.title}>
@@ -117,7 +121,34 @@ export function HomeLanding() {
         />
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6">
+      <Split
+        kicker="New · Running mode"
+        title="Runs and walks too, in the same app."
+        mock={<PhoneMock screen="run-live" />}
+        reverse
+      >
+        <p className="-mt-2 mb-6 text-[#525252]">
+          Switch to Running mode from the account menu. Same account, same history, nothing extra to install.
+        </p>
+        <ul className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          {[
+            ['GPS distance & pace', 'Moving time, average pace and a split for every km.'],
+            ['Voice at every km', '“2 kilometres, last kilometre 6 minutes 5 seconds.” Turn it off any time.'],
+            ['Route map', 'See where you ran once you finish.'],
+            ['Walks & treadmill', 'Pick Walk, or add a treadmill run by hand.'],
+          ].map(([t, d]) => (
+            <li key={t}>
+              <h3 className="font-semibold">{t}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#525252]">{d}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 text-sm text-[#525252]">
+          Keep the screen on and RepUp open while you run. <A href="/running-tracker-app">How run tracking works →</A>
+        </p>
+      </Split>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 pb-4 sm:px-6">
         <h2 className="mb-8 text-3xl font-semibold tracking-tight sm:text-4xl">Guides to get you started</h2>
         <Cards
           cols={3}
@@ -125,6 +156,9 @@ export function HomeLanding() {
             { tag: 'Beginners', title: 'First 12 weeks in the gym', body: <A href="/beginner-gym-workout-plan">A simple 3-day full body plan →</A> },
             { tag: 'Split', title: 'Push pull legs', body: <A href="/push-pull-legs-workout-planner">3-day and 6-day PPL plans →</A> },
             { tag: 'Diet + training', title: 'Lose fat, keep muscle', body: <A href="/weight-loss-workout-tracker">Weight loss workout plan →</A> },
+            { tag: 'Running', title: 'Your first 5K', body: <A href="/couch-to-5k-plan">Couch to 5K in 8 weeks →</A> },
+            { tag: 'Running', title: 'Know your pace', body: <A href="/running-pace-calculator">Running pace calculator →</A> },
+            { tag: 'Gym + running', title: 'Do both, the smart way', body: <A href="/running-and-lifting-schedule">Running + lifting schedule →</A> },
           ]}
         />
       </section>

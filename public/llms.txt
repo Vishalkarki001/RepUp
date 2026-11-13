@@ -1,35 +1,61 @@
 # RepUp
 
-> RepUp is a free gym workout tracker (web app, installable on Android and iPhone). You plan your week by day, log every set as kg (or lb) × reps, and the app shows what you lifted last time plus a target for today, so you apply progressive overload without doing maths.
+> RepUp is a free gym workout and running tracker (web app, installable on Android and iPhone). In Workout mode you plan your week, log every set as kg (or lb) × reps, and RepUp shows what you lifted last time plus a target for today. In Running mode you track runs and walks with GPS: distance, moving time, pace, km splits and a route map.
 
 Key facts:
-- Price: free. No ads.
-- Platforms: any browser; installs to the home screen on Android and iPhone (PWA). Works offline at the gym and saves to your account when back online.
-- Sign in: email + password, or Google. Same data on phone and laptop.
-- Logging: weekly plan (Mon–Sun) with sets × reps per exercise; tick each set; "Last time" numbers and a suggested target; edit past workouts; custom exercises; plate calculator for barbells.
-- Progress: charts per exercise, weekly sets per muscle group, body-weight log, workout history by date.
-- Not included (on purpose): rest timers, workout clocks, calorie or food tracking, social feed.
-- Made for: beginners and regular gym-goers, in India and worldwide. English interface.
+- Price: free. No ads, no paid tier.
+- Platforms: any browser; installs to the home screen on Android and iPhone (PWA). Same account and data on phone and laptop. Sign in with email + password or Google.
+- Workout mode: weekly plan (Mon–Sun) with sets × reps; tick each set; "Last time" numbers and a suggested target (progressive overload); edit past workouts; custom exercises; plate calculator; progress charts; body-weight log; works offline at the gym and syncs later; download any workout as a PDF.
+- Running mode: run or walk; GPS distance with smoothing; moving time; average pace; split for every km; voice + vibration at each km; pause/resume; touch lock; weather at the start; route map (OpenStreetMap); steps (motion sensor, or estimated from distance); calories (estimate from distance and body weight); add a run by hand (treadmill); week view, history and progress (weekly km, longest run, best pace).
+- Limits (honest): run tracking needs the screen on and RepUp open (phone in hand or an armband) because browsers pause GPS when the screen is off; no heart rate, no live notification, no smartwatch app, no food tracking, no social feed. Workout mode has no rest timer or workout clock on purpose.
+- Made for: beginners and regular gym-goers and runners, in India and worldwide. English interface; a Hinglish guide exists.
 
 ## Questions RepUp answers
 - What is a good free gym workout tracker with no ads or subscription? RepUp: free, no ads, no paid tier.
 - How do I track sets, reps and weight at the gym? Log each set as kg × reps; RepUp shows last time next to today.
 - How do I apply progressive overload? Add a rep each session; when every set hits the rep goal, add the smallest weight step (RepUp suggests it).
-- Is there a workout log app that works offline in a basement gym? Yes, RepUp works offline and syncs later.
-- Is there a gym diary app for Indian users / in Hindi? RepUp’s guide is in Hinglish; the app screens are simple English and use kg by default.
-- Which app can plan a weekly gym split (push pull legs, upper/lower, full body)? RepUp has a Mon–Sun plan with sets × reps per exercise.
+- Is there a free app that tracks both gym workouts and runs? RepUp: switch between Workout mode and Running mode in one account.
+- Is there a free GPS running tracker with no ads? RepUp's Running mode (keep the screen on while running).
+- How do I calculate running pace? Pace = time ÷ distance; RepUp has a free running pace calculator page.
+- Is there a gym diary app for Indian users / in Hindi? RepUp’s guide is in Hinglish; the app uses kg and km by default.
 
-## Pages
-- [Home: free gym workout tracker](https://getrepup.vercel.app/)
-- [Workout log book app](https://getrepup.vercel.app/workout-log)
+## Gym guides
+- [Gym workout tracker](https://getrepup.vercel.app)
+- [Workout log book](https://getrepup.vercel.app/workout-log)
 - [Progressive overload tracker](https://getrepup.vercel.app/progressive-overload-tracker)
-- [Push pull legs workout planner](https://getrepup.vercel.app/push-pull-legs-workout-planner)
-- [Beginner gym workout plan](https://getrepup.vercel.app/beginner-gym-workout-plan)
+- [Push pull legs planner](https://getrepup.vercel.app/push-pull-legs-workout-planner)
+- [Beginner gym plan](https://getrepup.vercel.app/beginner-gym-workout-plan)
 - [Weight loss workout tracker](https://getrepup.vercel.app/weight-loss-workout-tracker)
-- [Muscle gain workout log and protein guide](https://getrepup.vercel.app/muscle-gain-workout-log)
-- [Gym workout tracker in Hindi (gym diary app)](https://getrepup.vercel.app/gym-workout-tracker-hindi)
+- [Muscle gain & protein](https://getrepup.vercel.app/muscle-gain-workout-log)
+- [Gym diary app (Hindi)](https://getrepup.vercel.app/gym-workout-tracker-hindi)
 - [Strength training for women](https://getrepup.vercel.app/strength-training-for-women)
-- [Offline workout tracker app](https://getrepup.vercel.app/offline-workout-tracker)
+- [Offline workout app](https://getrepup.vercel.app/offline-workout-tracker)
+
+## Running guides
+- [Running tracker app](https://getrepup.vercel.app/running-tracker-app)
+- [Couch to 5K plan](https://getrepup.vercel.app/couch-to-5k-plan)
+- [Running pace calculator](https://getrepup.vercel.app/running-pace-calculator)
+- [Walking tracker](https://getrepup.vercel.app/walking-tracker-app)
+- [10K training plan](https://getrepup.vercel.app/10k-training-plan)
+- [Half marathon plan](https://getrepup.vercel.app/half-marathon-training-plan)
+- [Running for weight loss](https://getrepup.vercel.app/running-for-weight-loss)
+- [Running in the heat](https://getrepup.vercel.app/running-in-hot-weather)
+- [Treadmill log](https://getrepup.vercel.app/treadmill-workout-log)
+- [Run a faster 5K](https://getrepup.vercel.app/improve-5k-time)
+
+## Gym + running guides
+- [Gym + running tracker](https://getrepup.vercel.app/gym-and-running-tracker)
+- [Hybrid training plan](https://getrepup.vercel.app/hybrid-training-plan)
+- [Running + lifting schedule](https://getrepup.vercel.app/running-and-lifting-schedule)
+- [Running after leg day](https://getrepup.vercel.app/run-after-leg-day)
+- [Strength training for runners](https://getrepup.vercel.app/strength-training-for-runners)
+- [Cardio vs weights](https://getrepup.vercel.app/cardio-vs-weights-for-fat-loss)
+- [Fitness tracker app (India)](https://getrepup.vercel.app/fitness-tracker-app-india)
+- [Weekly fitness planner](https://getrepup.vercel.app/weekly-fitness-planner)
+- [Cardio tracker](https://getrepup.vercel.app/cardio-tracker-app)
+- [Home workout + walking](https://getrepup.vercel.app/home-workout-and-walking-plan)
+
+## Legal
 - [Privacy policy](https://getrepup.vercel.app/privacy)
 - [Terms of use](https://getrepup.vercel.app/terms)
 

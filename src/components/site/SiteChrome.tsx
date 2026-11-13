@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { cn } from 'cn';
-import { CONTACT_EMAIL, LANDING_PAGES, LEGAL_PAGES } from '@/lib/site';
+import { CONTACT_EMAIL, LANDING_PAGES, LEGAL_PAGES, PAGE_GROUPS } from '@/lib/site';
 
 export const SIGNUP_HREF = '/login?mode=signup';
 export const LOGIN_HREF = '/login';
@@ -57,31 +57,35 @@ export function SiteNav({
 export function SiteFooter({ className, mutedClass, current }: { className?: string; mutedClass?: string; current?: string }) {
   return (
     <footer className={cn('border-t', className)}>
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1fr_2fr]">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_3fr]">
         <div className="flex flex-col gap-3">
           <Brand />
           <p className={cn('max-w-xs text-sm leading-relaxed', mutedClass)}>
-            Free gym workout tracker. Log sets, reps and kg, see last time, beat it. Works offline on Android, iPhone and laptop.
+            Free gym workout and running tracker. Log sets, reps and kg, track your runs, beat last time. Android, iPhone and laptop.
           </p>
           <Link href={SIGNUP_HREF} className="w-fit text-sm font-semibold underline underline-offset-4">
             Start free →
           </Link>
         </div>
-        <nav aria-label="RepUp guides">
-          <p className="mb-3 text-sm font-semibold">Guides & tools</p>
-          <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            {LANDING_PAGES.map((p) => (
-              <li key={p.path}>
-                <Link
-                  href={p.path}
-                  aria-current={p.path === current ? 'page' : undefined}
-                  className={cn('hover:underline', p.path === current ? 'font-semibold' : mutedClass)}
-                >
-                  {p.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label="RepUp guides" className="grid gap-8 sm:grid-cols-3">
+          {PAGE_GROUPS.map((g) => (
+            <div key={g.id}>
+              <p className="mb-3 text-sm font-semibold">{g.label}</p>
+              <ul className="flex flex-col gap-2 text-sm">
+                {LANDING_PAGES.filter((p) => p.group === g.id).map((p) => (
+                  <li key={p.path}>
+                    <Link
+                      href={p.path}
+                      aria-current={p.path === current ? 'page' : undefined}
+                      className={cn('hover:underline', p.path === current ? 'font-semibold' : mutedClass)}
+                    >
+                      {p.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
       </div>
       <div className={cn('mx-auto w-full max-w-6xl px-4 pb-10 text-xs leading-relaxed sm:px-6', mutedClass)}>

@@ -59,7 +59,7 @@ const FAQS: Faq[] = [
   },
   {
     q: 'Kya RepUp calories ya diet track karta hai?',
-    a: 'Nahi. RepUp sirf workout ke liye hai: sets, reps, kg, progress charts aur body weight. Khana ya calories track nahi karta, aur isme rest timer bhi nahi hai. Simple rakha gaya hai.',
+    a: 'Khana track nahi karta. Workout mode mein sets, reps, kg, progress charts aur body weight hai, rest timer nahi. Running mode mein run ka timer aur calories ka andaza (estimate) milta hai. Simple rakha gaya hai.',
   },
 ];
 

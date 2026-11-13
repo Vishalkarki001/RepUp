@@ -7,7 +7,7 @@ import { ClientApp } from './ClientApp';
 export const metadata: Metadata = {
   title: { absolute: 'RepUp: Free Gym Workout Tracker & Workout Log App' },
   description:
-    'RepUp is a free gym workout tracker. Plan your week, log sets, reps and kg in seconds, see what you lifted last time and beat it. Works offline on Android and iPhone.',
+    'RepUp is a free gym workout and running tracker. Log sets, reps and kg, see what you lifted last time and beat it, and track runs with GPS. Android & iPhone.',
   alternates: { canonical: '/' },
 };
 

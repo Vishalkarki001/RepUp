@@ -32,6 +32,11 @@ export const metadata: Metadata = {
     'gym workout tracker app in Hindi',
     'offline workout tracker',
     'PWA workout app',
+    'running tracker app',
+    'GPS run tracker',
+    'walking tracker app',
+    'gym and running tracker',
+    'fitness tracker app India',
   ],
   openGraph: {
     type: 'website',

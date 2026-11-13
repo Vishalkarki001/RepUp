@@ -55,7 +55,7 @@ const FAQS: Faq[] = [
   },
   {
     q: 'Does RepUp have a rest timer?',
-    a: 'No. RepUp leaves out timers, workout clocks, calorie counting and social feeds on purpose. It does one job: record your sets and show you what to beat next time.',
+    a: 'No. Workout mode leaves out rest timers, workout clocks, calorie counting and social feeds on purpose: it records your sets and shows you what to beat next time. (Running mode, for runs and walks, does have a run timer and an estimate of calories.)',
   },
 ];
 
@@ -330,9 +330,9 @@ export default function Page() {
           minWidth={300}
           rows={[
             ['Rest timer', 'Your phone already has one.'],
-            ['Workout clock', 'How long you trained matters less than what you lifted.'],
+            ['Workout clock', 'In the gym, how long you trained matters less than what you lifted. (Runs have a timer in Running mode.)'],
             ['Social feed', 'No likes, no followers, no one watching.'],
-            ['Calorie counting', 'It logs body weight, not food.'],
+            ['Food & calorie counting', 'It logs body weight, not food. Runs show only a rough calorie estimate.'],
             ['AI coach', 'Last time’s numbers and a clear target do the job.'],
           ]}
         />

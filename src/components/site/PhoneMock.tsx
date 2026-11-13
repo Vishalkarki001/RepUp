@@ -5,7 +5,7 @@ import { cn } from 'cn';
  * numbers. Pure HTML/CSS, so it is sharp at any size and costs no image bytes.
  * Colours are fixed (not the page theme) so it looks like the app on any page.
  */
-type Screen = 'log' | 'week' | 'progress' | 'bodyweight';
+type Screen = 'log' | 'week' | 'progress' | 'bodyweight' | 'run-live' | 'run-summary' | 'run-week';
 
 const C = {
   dark: {
@@ -38,14 +38,20 @@ export function PhoneMock({
   className?: string;
 }) {
   const c = C[theme];
+  const RUN_LABELS: Partial<Record<Screen, string>> = {
+    'run-live': 'RepUp running screen: timer 24:35, 3.42 km, pace 7 minutes 11 seconds per km, pause, lock and finish buttons',
+    'run-summary': 'RepUp run saved: 5.02 km in 36:10, route on a map and the time for every kilometre',
+    'run-week': 'RepUp run tab: this week with run days marked, Start run button and weekly kilometres',
+  };
   const label =
-    screen === 'log'
+    RUN_LABELS[screen] ??
+    (screen === 'log'
       ? 'RepUp workout screen: Bench Press, last time 60 kg × 10 on every set, so today’s target is 62.5 kg'
       : screen === 'week'
         ? 'RepUp weekly plan: today’s workout and its exercises'
         : screen === 'bodyweight'
           ? 'RepUp body weight screen: a chart of body weight slowly going down over 8 weeks'
-          : 'RepUp progress screen: a chart of Bench Press weight going up';
+          : 'RepUp progress screen: a chart of Bench Press weight going up');
   return (
     <figure
       role="img"
@@ -64,6 +70,9 @@ export function PhoneMock({
         {screen === 'week' && <WeekScreen c={c} />}
         {screen === 'progress' && <ProgressScreen c={c} />}
         {screen === 'bodyweight' && <BodyWeightScreen c={c} />}
+        {screen === 'run-live' && <RunLiveScreen c={c} />}
+        {screen === 'run-summary' && <RunSummaryScreen c={c} />}
+        {screen === 'run-week' && <RunWeekScreen c={c} />}
       </div>
     </figure>
   );
@@ -338,6 +347,139 @@ function BodyWeightScreen({ c }: { c: Tone }) {
             <span className="font-semibold tabular-nums">{v}</span>
           </div>
         ))}
+      </div>
+    </>
+  );
+}
+
+/* ---------------- running mode ---------------- */
+
+function Tile({ c, value, unit, label }: { c: Tone; value: string; unit?: string; label: string }) {
+  return (
+    <div className={cn('rounded-xl border px-2.5 py-2', c.card)}>
+      <p className="text-[17px] font-semibold tracking-tight tabular-nums">
+        {value}
+        {unit && <span className={cn('ml-0.5 text-[10px] font-medium', c.muted)}>{unit}</span>}
+      </p>
+      <p className={cn('text-[9px]', c.muted)}>{label}</p>
+    </div>
+  );
+}
+
+function RunLiveScreen({ c }: { c: Tone }) {
+  return (
+    <>
+      <div className="flex items-center gap-1.5">
+        <p className="text-lg font-semibold tracking-tight">Run</p>
+        <span className="flex items-center gap-1 rounded-full bg-[#10b981]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#34d399]">
+          <span className="size-1 rounded-full bg-[#10b981]" /> Tracking
+        </span>
+        <span className={cn('ml-auto text-[10px]', c.muted)}>⛅ 29°C</span>
+      </div>
+      <div className="flex flex-col items-center py-2">
+        <span className="text-5xl font-semibold tracking-tight tabular-nums">24:35</span>
+        <span className={cn('text-[9px]', c.muted)}>moving time</span>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Tile c={c} value="3.42" unit="km" label="distance" />
+        <Tile c={c} value={`7'11"`} unit="/km" label="avg pace" />
+        <Tile c={c} value="~4,380" label="steps (estimate)" />
+        <Tile c={c} value="~268" unit="kcal" label="calories (estimate)" />
+      </div>
+      <p className={cn('text-center text-[9px]', c.muted)}>Keep the screen on and RepUp open.</p>
+      <div className="mt-auto flex flex-col gap-1.5">
+        <div className="grid grid-cols-[1fr_auto] gap-1.5">
+          <span className={cn('rounded-xl py-2.5 text-center text-[12px] font-semibold', c.chip)}>❚❚ Pause</span>
+          <span className={cn('rounded-xl border px-3 py-2.5 text-[12px]', c.card)}>🔒</span>
+        </div>
+        <span className="rounded-xl bg-[#ef4444]/20 py-2.5 text-center text-[12px] font-semibold text-[#f87171]">■ Finish</span>
+      </div>
+    </>
+  );
+}
+
+function RunSummaryScreen({ c }: { c: Tone }) {
+  const route = 'M18,92 C30,70 44,78 58,60 S86,40 98,52 S126,78 140,58 S168,22 186,30 S214,54 226,40';
+  return (
+    <>
+      <div>
+        <p className="text-[15px] font-semibold">🎉 Run saved</p>
+        <p className={cn('text-[10px]', c.muted)}>Friday, 13 November · 6:10 am</p>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Tile c={c} value="5.02" unit="km" label="distance" />
+        <Tile c={c} value="36:10" label="moving time" />
+        <Tile c={c} value={`7'12"`} unit="/km" label="avg pace" />
+        <Tile c={c} value="~392" unit="kcal" label="estimate" />
+      </div>
+      <div className={cn('relative h-[110px] overflow-hidden rounded-xl border', c.card)} aria-hidden>
+        <svg viewBox="0 0 244 110" className="absolute inset-0 size-full">
+          {[18, 46, 74, 102].map((y) => (
+            <line key={y} x1="0" x2="244" y1={y} y2={y + 6} stroke="currentColor" strokeOpacity="0.08" strokeWidth="5" />
+          ))}
+          {[40, 110, 180].map((x) => (
+            <line key={x} x1={x} x2={x - 14} y1="0" y2="110" stroke="currentColor" strokeOpacity="0.08" strokeWidth="5" />
+          ))}
+          <path d={route} fill="none" stroke="#7c3aed" strokeWidth="3.5" strokeLinecap="round" />
+          <circle cx="18" cy="92" r="4.5" fill="#10b981" stroke="#fff" strokeWidth="1.5" />
+          <circle cx="226" cy="40" r="4.5" fill="#ef4444" stroke="#fff" strokeWidth="1.5" />
+        </svg>
+      </div>
+      <div className={cn('flex flex-col rounded-xl border', c.card)}>
+        {[
+          ['Km 1', `7'05"`],
+          ['Km 2', `7'10"`],
+          ['Km 3', `6'58"`],
+          ['Km 4', `7'18"`],
+        ].map(([k, v], i) => (
+          <div key={k} className={cn('flex justify-between px-2.5 py-1.5 text-[10px] tabular-nums', i && cn('border-t', c.line))}>
+            <span className={c.muted}>{k}</span>
+            <span className={cn('font-semibold', i === 2 && 'text-[#10b981]')}>{v}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function RunWeekScreen({ c }: { c: Tone }) {
+  const days = [
+    ['Mon', '9', true],
+    ['Tue', '10', false],
+    ['Wed', '11', true],
+    ['Thu', '12', false],
+    ['Fri', '13', true],
+    ['Sat', '14', false],
+    ['Sun', '15', false],
+  ] as const;
+  return (
+    <>
+      <Top c={c} eyebrow="Friday, 13 November" title="Run" />
+      <div className="grid grid-cols-7 gap-1">
+        {days.map(([d, n, ran]) => (
+          <div
+            key={d}
+            className={cn('flex flex-col items-center gap-0.5 rounded-lg border py-1.5', d === 'Fri' ? 'border-[#7c3aed] bg-[#7c3aed] text-white' : c.card)}
+          >
+            <span className={cn('text-[8px]', d === 'Fri' ? 'text-white/80' : c.muted)}>{d}</span>
+            <span className="text-[12px] font-semibold tabular-nums">{n}</span>
+            <span className={cn('size-1 rounded-full', ran ? (d === 'Fri' ? 'bg-white' : 'bg-[#10b981]') : 'bg-transparent')} />
+          </div>
+        ))}
+      </div>
+      <div className={cn('flex flex-col gap-2.5 rounded-2xl border p-3', c.card)}>
+        <div className={cn('grid grid-cols-2 rounded-lg border text-center text-[11px]', c.line)}>
+          <span className="rounded-l-lg bg-[#7c3aed]/15 py-1.5 font-medium text-[#8b5cf6]">🏃 Run</span>
+          <span className={cn('py-1.5', c.muted)}>🚶 Walk</span>
+        </div>
+        <span className="rounded-xl bg-[#7c3aed] py-3 text-center text-[13px] font-semibold text-white">▶ Start run</span>
+        <p className={cn('text-center text-[9px]', c.muted)}>Keep the screen on and RepUp open while you run.</p>
+      </div>
+      <p className={cn('text-[10px] font-medium uppercase', c.muted)}>This week</p>
+      <div className="grid grid-cols-3 gap-1.5">
+        <Tile c={c} value="15.4" label="km" />
+        <Tile c={c} value="3" label="runs" />
+        <Tile c={c} value="1:49:20" label="time" />
       </div>
     </>
   );
