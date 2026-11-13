@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Dumbbell, Footprints, LayoutDashboard, Users, Utensils } from 'lucide-react';
+import { ArrowLeft, BookOpen, Dumbbell, Footprints, LayoutDashboard, Users, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -27,26 +27,35 @@ import { Loader } from '../Loader';
 import { UserAvatar } from '../UserAvatar';
 import { adminApi } from './api';
 import { AdminDashboard } from './Dashboard';
+import { AdminFoodDiary } from './FoodDiary';
 import { AdminFoods } from './Foods';
 import { AdminUsers } from './Users';
 import { AdminRuns } from './Runs';
 import { AdminWorkouts } from './Workouts';
 
-export type Section = 'dashboard' | 'users' | 'workouts' | 'runs' | 'foods';
+export type Section = 'dashboard' | 'users' | 'workouts' | 'runs' | 'food' | 'foods';
 
 const NAV: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'workouts', label: 'Workouts', icon: Dumbbell },
   { id: 'runs', label: 'Runs', icon: Footprints },
-  { id: 'foods', label: 'Foods', icon: Utensils },
+  { id: 'food', label: 'Food', icon: Utensils },
+  { id: 'foods', label: 'Food list', icon: BookOpen },
 ];
 
-const TITLES: Record<Section, string> = { dashboard: 'Dashboard', users: 'Users', workouts: 'Workouts', runs: 'Runs', foods: 'Foods' };
+const TITLES: Record<Section, string> = {
+  dashboard: 'Dashboard',
+  users: 'Users',
+  workouts: 'Workouts',
+  runs: 'Runs',
+  food: 'Food diaries',
+  foods: 'Shared food list',
+};
 
 function sectionFromHash(): Section {
   const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
-  return h === 'users' || h === 'workouts' || h === 'runs' || h === 'foods' ? h : 'dashboard';
+  return h === 'users' || h === 'workouts' || h === 'runs' || h === 'food' || h === 'foods' ? h : 'dashboard';
 }
 
 /**
@@ -117,6 +126,7 @@ function AdminShell() {
   /** Workouts filtered to one person (opened from their profile). */
   const [workoutsFor, setWorkoutsFor] = useState<{ id: string; label: string } | null>(null);
   const [runsFor, setRunsFor] = useState<{ id: string; label: string } | null>(null);
+  const [foodFor, setFoodFor] = useState<{ id: string; label: string } | null>(null);
   const { isMobile, setOpenMobile } = useSidebar();
   const account = useAccount();
 
@@ -131,6 +141,7 @@ function AdminShell() {
       setSection(s);
       if (s !== 'workouts') setWorkoutsFor(null);
       if (s !== 'runs') setRunsFor(null);
+      if (s !== 'food') setFoodFor(null);
       history.replaceState(null, '', s === 'dashboard' ? '/admin' : `/admin#${s}`);
       window.scrollTo({ top: 0 });
       if (isMobile) setOpenMobile(false);
@@ -149,6 +160,13 @@ function AdminShell() {
     (user: { id: string; label: string }) => {
       setRunsFor(user);
       go('runs');
+    },
+    [go],
+  );
+  const openFoodFor = useCallback(
+    (user: { id: string; label: string }) => {
+      setFoodFor(user);
+      go('food');
     },
     [go],
   );
@@ -212,9 +230,10 @@ function AdminShell() {
         </header>
         <div className="mx-auto w-full max-w-6xl min-w-0 p-4 md:p-6">
           {section === 'dashboard' && <AdminDashboard onGo={go} />}
-          {section === 'users' && <AdminUsers onOpenWorkouts={openWorkoutsFor} onOpenRuns={openRunsFor} />}
+          {section === 'users' && <AdminUsers onOpenWorkouts={openWorkoutsFor} onOpenRuns={openRunsFor} onOpenFood={openFoodFor} />}
           {section === 'workouts' && <AdminWorkouts user={workoutsFor} onClearUser={() => setWorkoutsFor(null)} />}
           {section === 'runs' && <AdminRuns user={runsFor} onClearUser={() => setRunsFor(null)} />}
+          {section === 'food' && <AdminFoodDiary user={foodFor} onClearUser={() => setFoodFor(null)} />}
           {section === 'foods' && <AdminFoods />}
         </div>
       </SidebarInset>

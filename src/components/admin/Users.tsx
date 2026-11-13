@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Dumbbell, Footprints, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, ShieldOff, Trash2, UserCheck } from 'lucide-react';
+import { Ban, Dumbbell, Footprints, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, ShieldOff, Trash2, UserCheck, Utensils } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -36,9 +36,11 @@ const WEEK = 7 * 86_400_000;
 export function AdminUsers({
   onOpenWorkouts,
   onOpenRuns,
+  onOpenFood,
 }: {
   onOpenWorkouts: (u: { id: string; label: string }) => void;
   onOpenRuns: (u: { id: string; label: string }) => void;
+  onOpenFood: (u: { id: string; label: string }) => void;
 }) {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +171,10 @@ export function AdminUsers({
           setOpenId(null);
           onOpenRuns(u);
         }}
+        onOpenFood={(u) => {
+          setOpenId(null);
+          onOpenFood(u);
+        }}
       />
     </div>
   );
@@ -182,12 +188,14 @@ function UserSheet({
   onChanged,
   onOpenWorkouts,
   onOpenRuns,
+  onOpenFood,
 }: {
   user: AdminUser | null;
   onClose: () => void;
   onChanged: () => Promise<void> | void;
   onOpenWorkouts: (u: { id: string; label: string }) => void;
   onOpenRuns: (u: { id: string; label: string }) => void;
+  onOpenFood: (u: { id: string; label: string }) => void;
 }) {
   const me = useAccount();
   const [name, setName] = useState('');
@@ -282,6 +290,8 @@ function UserSheet({
               <Fact label="Last workout">{user.last_workout_at ? ago(user.last_workout_at) : '—'}</Fact>
               <Fact label="Runs & walks">{user.runs}</Fact>
               <Fact label="Last run">{user.last_run_at ? ago(user.last_run_at) : '—'}</Fact>
+              <Fact label="Days with food logged">{user.food_days ?? 0}</Fact>
+              <Fact label="Last food">{user.last_food_date ? ago(`${user.last_food_date}T12:00:00`) : '—'}</Fact>
             </dl>
 
             <div className="grid grid-cols-2 gap-2">
@@ -290,6 +300,9 @@ function UserSheet({
               </Button>
               <Button variant="outline" onClick={() => onOpenRuns({ id: user.id, label })} disabled={!user.runs}>
                 <Footprints /> {user.runs ? `${user.runs} run${user.runs === 1 ? '' : 's'}` : 'No runs'}
+              </Button>
+              <Button variant="outline" className="col-span-2" onClick={() => onOpenFood({ id: user.id, label })} disabled={!user.food_days}>
+                <Utensils /> {user.food_days ? `Food diary · ${user.food_days} day${user.food_days === 1 ? '' : 's'}` : 'No food logged'}
               </Button>
             </div>
 

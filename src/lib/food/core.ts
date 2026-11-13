@@ -250,6 +250,37 @@ export function macrosForKcal(kcal: number, weightKg: number | null): Omit<Macro
   return { protein, fat, carbs: Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4)) };
 }
 
+/** Macro split in % of calories (should add up to 100). */
+export interface MacroSplit {
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+/** Ready-made splits (protein / carbs / fat %). */
+export const SPLIT_PRESETS: { id: string; label: string; split: MacroSplit }[] = [
+  { id: 'balanced', label: 'Balanced', split: { protein: 25, carbs: 50, fat: 25 } },
+  { id: 'high-protein', label: 'High protein', split: { protein: 35, carbs: 40, fat: 25 } },
+  { id: 'low-carb', label: 'Low carb', split: { protein: 35, carbs: 25, fat: 40 } },
+];
+
+/** Grams for a calorie target and a % split: protein and carbs 4 kcal/g, fat 9 kcal/g. */
+export function gramsFromSplit(kcal: number, split: MacroSplit): Omit<Macros, 'kcal'> {
+  return {
+    protein: Math.round((kcal * split.protein) / 100 / 4),
+    carbs: Math.round((kcal * split.carbs) / 100 / 4),
+    fat: Math.round((kcal * split.fat) / 100 / 9),
+  };
+}
+
+/** The % split of a target in grams, as whole numbers that add up to exactly 100. */
+export function splitFromGoal(goal: Macros): MacroSplit {
+  if (!goal.kcal) return { protein: 25, carbs: 50, fat: 25 };
+  const protein = Math.round(((goal.protein * 4) / goal.kcal) * 100);
+  const fat = Math.round(((goal.fat * 9) / goal.kcal) * 100);
+  return { protein, fat, carbs: Math.max(0, 100 - protein - fat) };
+}
+
 /* ------------------------------------------------------------------ */
 /* Days                                                                 */
 /* ------------------------------------------------------------------ */

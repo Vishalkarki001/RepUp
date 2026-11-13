@@ -311,9 +311,9 @@ export async function buildFoodPdf(date: string, logs: FoodLog[], goal: FoodGoal
   const r = Math.round;
   const lines = [
     formatDate(ts, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-    goal
+    goal && goal.protein > 0
       ? `${r(total.kcal).toLocaleString('en-IN')} of ${goal.kcal.toLocaleString('en-IN')} kcal · Protein ${r(total.p)}/${goal.protein} g · Carbs ${r(total.c)}/${goal.carbs} g · Fat ${r(total.f)}/${goal.fat} g`
-      : `${r(total.kcal).toLocaleString('en-IN')} kcal · Protein ${r(total.p)} g · Carbs ${r(total.c)} g · Fat ${r(total.f)} g`,
+      : `${r(total.kcal).toLocaleString('en-IN')}${goal ? ` of ${goal.kcal.toLocaleString('en-IN')}` : ''} kcal · Protein ${r(total.p)} g · Carbs ${r(total.c)} g · Fat ${r(total.f)} g`,
   ];
   if (waterGlasses) lines.push(`Water: ${waterGlasses} ${waterGlasses === 1 ? 'glass' : 'glasses'} (${(waterGlasses * 0.25).toFixed(2).replace(/0$/, '')} L)`);
   let y = header(doc, 'Food diary', lines);

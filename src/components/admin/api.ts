@@ -26,6 +26,9 @@ export interface AdminUser {
   last_workout_at: string | null;
   runs: number;
   last_run_at: string | null;
+  /** Days with food logged (0 before the food update ran). */
+  food_days?: number;
+  last_food_date?: string | null;
 }
 
 export interface AdminStats {
@@ -40,12 +43,15 @@ export interface AdminStats {
   runs_7d: number;
   run_km: number;
   run_km_7d: number;
-  daily: { day: string; signups: number; workouts: number; runs: number }[];
+  food_logs?: number;
+  food_7d?: number;
+  food_users_7d?: number;
+  daily: { day: string; signups: number; workouts: number; runs: number; food?: number }[];
 }
 
 export interface AdminActivity {
   at: string;
-  kind: 'signup' | 'workout' | 'run' | 'admin';
+  kind: 'signup' | 'workout' | 'run' | 'food' | 'admin';
   user_id: string | null;
   user_email: string | null;
   user_name: string | null;
@@ -93,6 +99,33 @@ export interface AdminRun {
   gap_s: number;
   source: 'gps' | 'manual';
   note: string | null;
+}
+
+/** One person's food on one day. */
+export interface AdminFoodDay {
+  user_id: string;
+  user_email: string | null;
+  user_name: string | null;
+  date: string; // YYYY-MM-DD
+  items: number;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  water: number | null;
+  goal_kcal: number | null;
+  foods: {
+    meal: 'breakfast' | 'lunch' | 'dinner' | 'snacks';
+    name: string;
+    amount: number;
+    unit: string;
+    grams: number;
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    source: string;
+  }[];
 }
 
 export interface AdminFood {
@@ -163,6 +196,13 @@ export const adminApi = {
       p_search: opts.search?.trim() || null,
       p_before: opts.before ?? null,
       p_limit: opts.limit ?? 50,
+    }),
+  foodDays: (opts: { user?: string | null; search?: string; before?: string | null; days?: number } = {}) =>
+    call<AdminFoodDay[]>('admin_food_days', {
+      p_user: opts.user ?? null,
+      p_search: opts.search?.trim() || null,
+      p_before: opts.before ?? null,
+      p_days: opts.days ?? 14,
     }),
   foods: (opts: { search?: string; source?: AdminFood['source'] | null; limit?: number } = {}) =>
     call<AdminFood[]>('admin_foods', { p_search: opts.search?.trim() || null, p_source: opts.source ?? null, p_limit: opts.limit ?? 200 }),

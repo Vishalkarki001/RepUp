@@ -11,9 +11,20 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { downloadFoodPdf } from '@/lib/exportPdf';
-import { ACTIVITY, addDays, foodStreak, goalFor, macrosForKcal, maintenance, sumMacros } from '@/lib/food/core';
+import {
+  ACTIVITY,
+  addDays,
+  foodStreak,
+  goalFor,
+  gramsFromSplit,
+  maintenance,
+  SPLIT_PRESETS,
+  splitFromGoal,
+  sumMacros,
+  type MacroSplit,
+} from '@/lib/food/core';
 import { actions, useAppState } from '@/lib/store';
-import { MEAL_LABELS, MEALS, WEEKDAYS, WEEKDAYS_LONG, type Activity, type FoodLog, type FoodPlan, type FoodProfile, type Meal, type Sex } from '@/lib/types';
+import { MEAL_LABELS, MEALS, WEEKDAYS, WEEKDAYS_LONG, type Activity, type FoodGoal, type FoodLog, type FoodPlan, type FoodProfile, type Meal, type Sex } from '@/lib/types';
 import { cn, formatDate, startOfWeek, todayISO, uid, unitLabel, useNow } from '@/lib/utils';
 import { BarChart, LineChart } from '../Charts';
 import { SectionTitle, Stat, StatGrid } from '../common';
@@ -337,6 +348,94 @@ export function FoodProgress() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Your own target: kcal + protein / carbs / fat in %                   */
+/* ------------------------------------------------------------------ */
+
+const MACRO_ROWS: { key: keyof MacroSplit; label: string; perGram: number }[] = [
+  { key: 'protein', label: 'Protein', perGram: 4 },
+  { key: 'carbs', label: 'Carbs', perGram: 4 },
+  { key: 'fat', label: 'Fat', perGram: 9 },
+];
+
+/** Type calories, pick the % for protein, carbs and fat (5 % steps or typed): grams follow. Must add up to 100 %. */
+function TargetEditor({ start, onSave }: { start: FoodGoal | null; onSave: (kcal: number, split: MacroSplit) => void }) {
+  const [kcal, setKcal] = useState<number | null>(start?.kcal ?? null);
+  const [split, setSplit] = useState<MacroSplit>(() => (start ? splitFromGoal(start) : SPLIT_PRESETS[0].split));
+  const total = split.protein + split.carbs + split.fat;
+  const kcalOk = !!kcal && kcal >= 800 && kcal <= 6000;
+  const grams = kcalOk ? gramsFromSplit(kcal!, split) : null;
+  const unchanged =
+    !!start && kcal === start.kcal && grams?.protein === start.protein && grams?.carbs === start.carbs && grams?.fat === start.fat;
+  const set = (k: keyof MacroSplit, v: number | null) => setSplit((s) => ({ ...s, [k]: Math.max(0, Math.min(100, Math.round(v ?? 0))) }));
+  const preset = SPLIT_PRESETS.find((p) => p.split.protein === split.protein && p.split.carbs === split.carbs && p.split.fat === split.fat);
+
+  return (
+    <Card className="gap-4 px-4 py-5">
+      <NumberField label="Calories a day (kcal)" value={kcal} onValue={setKcal} placeholder="2300" />
+
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        spacing={1.5}
+        value={preset?.id ?? ''}
+        onValueChange={(v) => {
+          const p = SPLIT_PRESETS.find((x) => x.id === v);
+          if (p) setSplit(p.split);
+        }}
+        aria-label="Ready-made splits"
+        className="flex w-full flex-wrap justify-start"
+      >
+        {SPLIT_PRESETS.map((p) => (
+          <ToggleGroupItem
+            key={p.id}
+            value={p.id}
+            className="h-8 rounded-full px-3 text-xs data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+          >
+            {p.label} {p.split.protein}/{p.split.carbs}/{p.split.fat}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+
+      <div className="flex flex-col gap-2.5">
+        {MACRO_ROWS.map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-2">
+            <div className="w-16 shrink-0 text-sm font-medium">{label}</div>
+            <Button variant="outline" size="icon" className="size-9 shrink-0" aria-label={`Less ${label.toLowerCase()}`} disabled={split[key] <= 0} onClick={() => set(key, split[key] - 5)}>
+              <Minus />
+            </Button>
+            <div className="relative w-16 shrink-0">
+              <NumberField label={`${label} %`} hideLabel value={split[key]} onValue={(v) => set(key, v)} />
+              <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+            </div>
+            <Button variant="outline" size="icon" className="size-9 shrink-0" aria-label={`More ${label.toLowerCase()}`} disabled={split[key] >= 100} onClick={() => set(key, split[key] + 5)}>
+              <Plus />
+            </Button>
+            <div className="min-w-0 flex-1 text-right text-sm font-semibold tabular">{grams ? `${grams[key]} g` : '– g'}</div>
+          </div>
+        ))}
+      </div>
+
+      <p
+        className={cn(
+          'rounded-lg px-3 py-2 text-xs font-medium tabular',
+          total === 100 ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning',
+        )}
+        role="status"
+      >
+        {total === 100
+          ? 'Total 100% ✓'
+          : `Total ${total}%: make it 100% (${total > 100 ? `${total - 100}% too much` : `${100 - total}% missing`})`}
+      </p>
+
+      <Button className="h-11 text-base" disabled={!kcalOk || total !== 100 || unchanged} onClick={() => onSave(Math.round(kcal!), split)}>
+        {unchanged ? 'Your target ✓' : 'Save target'}
+      </Button>
+      {!kcalOk && kcal !== null && <p className="-mt-2 text-center text-xs text-muted-foreground">Calories between 800 and 6,000.</p>}
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Know your calories                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -356,7 +455,6 @@ export function FoodCalories() {
   const [height, setHeight] = useState<number | null>(saved?.heightCm ?? null);
   const [weight, setWeight] = useState<number | null>(saved?.weightKg ?? lastKg);
   const [activity, setActivity] = useState<Activity>(saved?.activity ?? 'light');
-  const [custom, setCustom] = useState<number | null>(foodGoal?.plan === 'custom' ? foodGoal.kcal : null);
 
   const ok = !!age && age >= 14 && age <= 90 && !!height && height >= 120 && height <= 230 && !!weight && weight >= 30 && weight <= 250;
   const profile: FoodProfile | null = ok ? { sex, age: age!, heightCm: height!, weightKg: weight!, activity } : null;
@@ -367,11 +465,6 @@ export function FoodCalories() {
     const g = goalFor(profile, plan);
     actions.setFoodGoal(g);
     toast.success(`Daily target set: ${fmtKcal(g.kcal)} kcal`);
-  };
-  const useCustom = () => {
-    if (!custom || custom < 800 || custom > 6000) return;
-    actions.setFoodGoal({ plan: 'custom', kcal: Math.round(custom), ...macrosForKcal(custom, weight), profile: profile ?? undefined });
-    toast.success(`Daily target set: ${fmtKcal(custom)} kcal`);
   };
 
   return (
@@ -384,7 +477,10 @@ export function FoodCalories() {
           <div className="min-w-0 flex-1 text-sm">
             <div className="font-semibold tabular">Your target: {fmtKcal(foodGoal.kcal)} kcal a day</div>
             <div className="text-xs text-muted-foreground tabular">
-              Protein {foodGoal.protein} g · Carbs {foodGoal.carbs} g · Fat {foodGoal.fat} g
+              {(() => {
+                const pct = splitFromGoal(foodGoal);
+                return `Protein ${foodGoal.protein} g (${pct.protein}%) · Carbs ${foodGoal.carbs} g (${pct.carbs}%) · Fat ${foodGoal.fat} g (${pct.fat}%)`;
+              })()}
             </div>
           </div>
         </Card>
@@ -466,15 +562,16 @@ export function FoodCalories() {
       )}
 
       <section className="flex flex-col gap-2">
-        <SectionTitle>Or type your own target</SectionTitle>
-        <Card className="flex-row items-end gap-2 px-4 py-4">
-          <div className="flex-1">
-            <NumberField label="kcal a day" value={custom} onValue={setCustom} placeholder="2000" />
-          </div>
-          <Button className="h-10" disabled={!custom || custom < 800 || custom > 6000} onClick={useCustom}>
-            Set
-          </Button>
-        </Card>
+        <SectionTitle>{profile ? 'Or set your own target' : 'Set your own target'}</SectionTitle>
+        {/* Starts from the current target; resets when a goal above is picked. */}
+        <TargetEditor
+          key={foodGoal ? `${foodGoal.kcal}-${foodGoal.protein}-${foodGoal.carbs}-${foodGoal.fat}` : 'none'}
+          start={foodGoal}
+          onSave={(kcal, split) => {
+            actions.setFoodGoal({ plan: 'custom', kcal, ...gramsFromSplit(kcal, split), profile: profile ?? foodGoal?.profile });
+            toast.success(`Daily target set: ${fmtKcal(kcal)} kcal`);
+          }}
+        />
       </section>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">

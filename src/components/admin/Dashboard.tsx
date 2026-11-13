@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Dumbbell, Footprints, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
+import { Dumbbell, Footprints, RefreshCw, ShieldCheck, UserPlus, Utensils } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ const chartConfig = {
   signups: { label: 'New users', color: 'var(--chart-2)' },
   workouts: { label: 'Workouts', color: 'var(--chart-1)' },
   runs: { label: 'Runs', color: 'var(--success)' },
+  food: { label: 'People logging food', color: 'var(--warning)' },
 } satisfies ChartConfig;
 
 /** Overview: totals, the last 30 days, and what happened recently. */
@@ -45,6 +46,12 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
     { label: 'Workouts this week', value: stats?.workouts_7d, hint: stats ? `${stats.workouts.toLocaleString('en-IN')} in total` : undefined, go: 'workouts' },
     { label: 'Runs this week', value: stats?.runs_7d, hint: stats ? `${(stats.runs ?? 0).toLocaleString('en-IN')} in total` : undefined, go: 'runs' },
     { label: 'Km run this week', value: stats ? Number(stats.run_km_7d ?? 0).toLocaleString('en-IN') : undefined, hint: stats ? `${Number(stats.run_km ?? 0).toLocaleString('en-IN')} km in total` : undefined, go: 'runs' },
+    {
+      label: 'Logging food this week',
+      value: stats ? (stats.food_users_7d ?? 0) : undefined,
+      hint: stats ? `${(stats.food_7d ?? 0).toLocaleString('en-IN')} foods this week · ${(stats.food_logs ?? 0).toLocaleString('en-IN')} in total` : undefined,
+      go: 'food',
+    },
   ];
 
   const daily = (stats?.daily ?? []).map((d) => ({
@@ -63,9 +70,14 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
 
       {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {tiles.map((t) => (
-          <Card key={t.label} className="cursor-pointer gap-1 py-4 transition-colors hover:bg-muted/40" onClick={() => t.go && onGo(t.go)}>
+          <Card
+            key={t.label}
+            // 7 tiles: the last one fills the row on phones (2 across).
+            className="cursor-pointer gap-1 py-4 transition-colors last:col-span-2 hover:bg-muted/40 md:last:col-span-1"
+            onClick={() => t.go && onGo(t.go)}
+          >
             <CardHeader className="px-4">
               <CardDescription>{t.label}</CardDescription>
               <CardTitle className="text-3xl tabular">{t.value == null ? <Skeleton className="h-8 w-16" /> : typeof t.value === 'number' ? t.value.toLocaleString('en-IN') : t.value}</CardTitle>
@@ -87,7 +99,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
       <Card>
         <CardHeader>
           <CardTitle>Last 30 days</CardTitle>
-          <CardDescription>New users, workouts and runs per day (India time)</CardDescription>
+          <CardDescription>New users, workouts, runs and people logging food per day (India time)</CardDescription>
         </CardHeader>
         <CardContent className="px-2 sm:px-6">
           {stats ? (
@@ -100,6 +112,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="workouts" fill="var(--color-workouts)" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="runs" fill="var(--color-runs)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="food" fill="var(--color-food)" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="signups" fill="var(--color-signups)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ChartContainer>
@@ -112,7 +125,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
       <Card className="gap-0 pb-0">
         <CardHeader className="border-b pb-4">
           <CardTitle>Recent activity</CardTitle>
-          <CardDescription>Sign-ups, workouts, runs and admin actions</CardDescription>
+          <CardDescription>Sign-ups, workouts, runs, food and admin actions</CardDescription>
           <CardAction>
             <Button variant="ghost" size="sm" onClick={() => onGo('workouts')}>
               All workouts
@@ -139,10 +152,21 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
                       a.kind === 'signup' && 'bg-success-soft text-success',
                       a.kind === 'workout' && 'bg-accent text-accent-foreground',
                       a.kind === 'run' && 'bg-success-soft text-success',
+                      a.kind === 'food' && 'bg-warning-soft text-warning',
                       a.kind === 'admin' && 'bg-destructive/10 text-destructive',
                     )}
                   >
-                    {a.kind === 'signup' ? <UserPlus /> : a.kind === 'workout' ? <Dumbbell /> : a.kind === 'run' ? <Footprints /> : <ShieldCheck />}
+                    {a.kind === 'signup' ? (
+                      <UserPlus />
+                    ) : a.kind === 'workout' ? (
+                      <Dumbbell />
+                    ) : a.kind === 'run' ? (
+                      <Footprints />
+                    ) : a.kind === 'food' ? (
+                      <Utensils />
+                    ) : (
+                      <ShieldCheck />
+                    )}
                   </ItemMedia>
                   <ItemContent className="min-w-0">
                     <ItemTitle className="w-full truncate">{activityText(a)}</ItemTitle>
@@ -164,5 +188,6 @@ function activityText(a: AdminActivity): string {
   if (a.kind === 'signup') return `${who} joined${a.detail === 'google' ? ' with Google' : ''}`;
   if (a.kind === 'workout') return `${who} logged “${a.detail || 'Workout'}”`;
   if (a.kind === 'run') return `${who} did a ${a.detail || 'run'}`;
+  if (a.kind === 'food') return `${who} logged ${a.detail || 'food'}`;
   return `Admin: ${a.detail ?? ''}`;
 }

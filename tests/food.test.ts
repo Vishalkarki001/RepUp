@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { buildIndex, type IndbRow } from '../src/lib/food/build-index';
-import { addDays, believable, bmr, foodStreak, foodFromLog, goalFor, macrosForKcal, maintenance, nutrientsFor, recentFoods, searchFoods } from '../src/lib/food/core';
+import { addDays, believable, bmr, foodStreak, gramsFromSplit, SPLIT_PRESETS, splitFromGoal, foodFromLog, goalFor, macrosForKcal, maintenance, nutrientsFor, recentFoods, searchFoods } from '../src/lib/food/core';
 import { FOODS } from '../src/lib/food/foods';
 import { actions } from '../src/lib/store';
 import type { FoodLog } from '../src/lib/types';
@@ -128,6 +128,27 @@ describe('food log in the store', () => {
     assert.equal(r[0].last.amount, 1);
     assert.equal(r[0].food.per100.kcal, 265);
     assert.deepEqual(foodFromLog(log()).servings, [{ label: 'roti', grams: 40 }]);
+  });
+});
+
+describe('target in % (like MyFitnessPal)', () => {
+  test('2300 kcal at 30 / 40 / 30 → grams', () => assert.deepEqual(gramsFromSplit(2300, { protein: 30, carbs: 40, fat: 30 }), { protein: 173, carbs: 230, fat: 77 }));
+  test('grams add back up to about the calories', () => {
+    const g = gramsFromSplit(2300, { protein: 50, carbs: 20, fat: 30 });
+    assert.ok(Math.abs(g.protein * 4 + g.carbs * 4 + g.fat * 9 - 2300) <= 10);
+  });
+  test('saved grams read back as the same whole %, adding up to 100', () => {
+    for (const kcal of [1200, 1780, 2000, 2300, 3100]) {
+      for (const { split } of SPLIT_PRESETS) {
+        const back = splitFromGoal({ kcal, ...gramsFromSplit(kcal, split) });
+        assert.deepEqual(back, split, `${kcal} kcal ${JSON.stringify(split)} → ${JSON.stringify(back)}`);
+      }
+    }
+  });
+  test('calculator targets show a % split that adds up to 100', () => {
+    const g = goalFor({ sex: 'female', age: 30, heightCm: 165, weightKg: 62, activity: 'light' }, 'lose');
+    const s = splitFromGoal(g);
+    assert.equal(s.protein + s.carbs + s.fat, 100);
   });
 });
 
