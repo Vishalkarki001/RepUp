@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Dumbbell, LayoutDashboard, Users } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Footprints, LayoutDashboard, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -28,21 +28,23 @@ import { UserAvatar } from '../UserAvatar';
 import { adminApi } from './api';
 import { AdminDashboard } from './Dashboard';
 import { AdminUsers } from './Users';
+import { AdminRuns } from './Runs';
 import { AdminWorkouts } from './Workouts';
 
-export type Section = 'dashboard' | 'users' | 'workouts';
+export type Section = 'dashboard' | 'users' | 'workouts' | 'runs';
 
 const NAV: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'workouts', label: 'Workouts', icon: Dumbbell },
+  { id: 'runs', label: 'Runs', icon: Footprints },
 ];
 
-const TITLES: Record<Section, string> = { dashboard: 'Dashboard', users: 'Users', workouts: 'Workouts' };
+const TITLES: Record<Section, string> = { dashboard: 'Dashboard', users: 'Users', workouts: 'Workouts', runs: 'Runs' };
 
 function sectionFromHash(): Section {
   const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
-  return h === 'users' || h === 'workouts' ? h : 'dashboard';
+  return h === 'users' || h === 'workouts' || h === 'runs' ? h : 'dashboard';
 }
 
 /**
@@ -112,6 +114,7 @@ function AdminShell() {
   const [section, setSection] = useState<Section>(sectionFromHash);
   /** Workouts filtered to one person (opened from their profile). */
   const [workoutsFor, setWorkoutsFor] = useState<{ id: string; label: string } | null>(null);
+  const [runsFor, setRunsFor] = useState<{ id: string; label: string } | null>(null);
   const { isMobile, setOpenMobile } = useSidebar();
   const account = useAccount();
 
@@ -125,6 +128,7 @@ function AdminShell() {
     (s: Section) => {
       setSection(s);
       if (s !== 'workouts') setWorkoutsFor(null);
+      if (s !== 'runs') setRunsFor(null);
       history.replaceState(null, '', s === 'dashboard' ? '/admin' : `/admin#${s}`);
       window.scrollTo({ top: 0 });
       if (isMobile) setOpenMobile(false);
@@ -136,6 +140,13 @@ function AdminShell() {
     (user: { id: string; label: string }) => {
       setWorkoutsFor(user);
       go('workouts');
+    },
+    [go],
+  );
+  const openRunsFor = useCallback(
+    (user: { id: string; label: string }) => {
+      setRunsFor(user);
+      go('runs');
     },
     [go],
   );
@@ -199,8 +210,9 @@ function AdminShell() {
         </header>
         <div className="mx-auto w-full max-w-6xl min-w-0 p-4 md:p-6">
           {section === 'dashboard' && <AdminDashboard onGo={go} />}
-          {section === 'users' && <AdminUsers onOpenWorkouts={openWorkoutsFor} />}
+          {section === 'users' && <AdminUsers onOpenWorkouts={openWorkoutsFor} onOpenRuns={openRunsFor} />}
           {section === 'workouts' && <AdminWorkouts user={workoutsFor} onClearUser={() => setWorkoutsFor(null)} />}
+          {section === 'runs' && <AdminRuns user={runsFor} onClearUser={() => setRunsFor(null)} />}
         </div>
       </SidebarInset>
     </>

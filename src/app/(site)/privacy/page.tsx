@@ -69,7 +69,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>RepUp admins</b> (the small team that runs RepUp) can see your account details (name, email, photo, sign-up and
-            last-active dates) and your logged workouts (exercises, sets, weights, reps and notes). We use this only to run and
+            last-active dates), your logged workouts (exercises, sets, weights, reps and notes) and your runs (distance, time, pace,
+            steps, calories, weather and notes, but not your route map). We use this only to run and
             improve RepUp, help you when you ask, and stop misuse. Admins can also block or delete an account that breaks our{' '}
             <a href="/terms">terms</a>. Every admin action is recorded.
           </li>

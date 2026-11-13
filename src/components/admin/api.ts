@@ -24,6 +24,8 @@ export interface AdminUser {
   email_confirmed: boolean;
   workouts: number;
   last_workout_at: string | null;
+  runs: number;
+  last_run_at: string | null;
 }
 
 export interface AdminStats {
@@ -34,12 +36,16 @@ export interface AdminStats {
   blocked: number;
   workouts: number;
   workouts_7d: number;
-  daily: { day: string; signups: number; workouts: number }[];
+  runs: number;
+  runs_7d: number;
+  run_km: number;
+  run_km_7d: number;
+  daily: { day: string; signups: number; workouts: number; runs: number }[];
 }
 
 export interface AdminActivity {
   at: string;
-  kind: 'signup' | 'workout' | 'admin';
+  kind: 'signup' | 'workout' | 'run' | 'admin';
   user_id: string | null;
   user_email: string | null;
   user_name: string | null;
@@ -65,6 +71,28 @@ export interface AdminWorkout {
   exercise_names: Record<string, string>;
   /** The person's own unit setting: numbers are stored as they typed them. */
   unit: 'kg' | 'lb';
+}
+
+/** A run or walk as admins see it (the route isn't shared with admins). */
+export interface AdminRun {
+  user_id: string;
+  user_email: string | null;
+  user_name: string | null;
+  id: string;
+  kind: 'run' | 'walk';
+  started_at: string;
+  finished_at: string;
+  duration_s: number;
+  distance_m: number;
+  steps: number | null;
+  steps_source: 'sensor' | 'estimate' | null;
+  calories: number;
+  temp_c: number | null;
+  weather_code: number | null;
+  splits: number[];
+  gap_s: number;
+  source: 'gps' | 'manual';
+  note: string | null;
 }
 
 /** Turns a database error into words an admin understands. */
@@ -100,6 +128,13 @@ export const adminApi = {
   activity: (limit = 30) => call<AdminActivity[]>('admin_activity', { p_limit: limit }),
   workouts: (opts: { user?: string | null; search?: string; before?: string | null; limit?: number } = {}) =>
     call<AdminWorkout[]>('admin_workouts', {
+      p_user: opts.user ?? null,
+      p_search: opts.search?.trim() || null,
+      p_before: opts.before ?? null,
+      p_limit: opts.limit ?? 50,
+    }),
+  runs: (opts: { user?: string | null; search?: string; before?: string | null; limit?: number } = {}) =>
+    call<AdminRun[]>('admin_runs', {
       p_user: opts.user ?? null,
       p_search: opts.search?.trim() || null,
       p_before: opts.before ?? null,

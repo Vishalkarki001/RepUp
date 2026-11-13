@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Dumbbell, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, ShieldOff, Trash2, UserCheck } from 'lucide-react';
+import { Ban, Dumbbell, Footprints, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, ShieldOff, Trash2, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -33,7 +33,13 @@ type Filter = 'all' | 'admins' | 'blocked' | 'new';
 const WEEK = 7 * 86_400_000;
 
 /** Everyone who has an account: search, filter, open a person to manage them. */
-export function AdminUsers({ onOpenWorkouts }: { onOpenWorkouts: (u: { id: string; label: string }) => void }) {
+export function AdminUsers({
+  onOpenWorkouts,
+  onOpenRuns,
+}: {
+  onOpenWorkouts: (u: { id: string; label: string }) => void;
+  onOpenRuns: (u: { id: string; label: string }) => void;
+}) {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -159,6 +165,10 @@ export function AdminUsers({ onOpenWorkouts }: { onOpenWorkouts: (u: { id: strin
           setOpenId(null);
           onOpenWorkouts(u);
         }}
+        onOpenRuns={(u) => {
+          setOpenId(null);
+          onOpenRuns(u);
+        }}
       />
     </div>
   );
@@ -171,11 +181,13 @@ function UserSheet({
   onClose,
   onChanged,
   onOpenWorkouts,
+  onOpenRuns,
 }: {
   user: AdminUser | null;
   onClose: () => void;
   onChanged: () => Promise<void> | void;
   onOpenWorkouts: (u: { id: string; label: string }) => void;
+  onOpenRuns: (u: { id: string; label: string }) => void;
 }) {
   const me = useAccount();
   const [name, setName] = useState('');
@@ -268,11 +280,18 @@ function UserSheet({
               <Fact label="Last active">{ago(user.last_seen_at ?? user.last_sign_in_at)}</Fact>
               <Fact label="Workouts">{user.workouts}</Fact>
               <Fact label="Last workout">{user.last_workout_at ? ago(user.last_workout_at) : '—'}</Fact>
+              <Fact label="Runs & walks">{user.runs}</Fact>
+              <Fact label="Last run">{user.last_run_at ? ago(user.last_run_at) : '—'}</Fact>
             </dl>
 
-            <Button variant="outline" onClick={() => onOpenWorkouts({ id: user.id, label })} disabled={!user.workouts}>
-              <Dumbbell /> See {user.workouts ? `their ${user.workouts} workout${user.workouts === 1 ? '' : 's'}` : 'workouts (none yet)'}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => onOpenWorkouts({ id: user.id, label })} disabled={!user.workouts}>
+                <Dumbbell /> {user.workouts ? `${user.workouts} workout${user.workouts === 1 ? '' : 's'}` : 'No workouts'}
+              </Button>
+              <Button variant="outline" onClick={() => onOpenRuns({ id: user.id, label })} disabled={!user.runs}>
+                <Footprints /> {user.runs ? `${user.runs} run${user.runs === 1 ? '' : 's'}` : 'No runs'}
+              </Button>
+            </div>
 
             <Separator />
 

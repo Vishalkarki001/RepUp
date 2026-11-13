@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Dumbbell, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
+import { Dumbbell, Footprints, RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { adminApi, ago, displayName, type AdminActivity, type AdminStats } from 
 const chartConfig = {
   signups: { label: 'New users', color: 'var(--chart-2)' },
   workouts: { label: 'Workouts', color: 'var(--chart-1)' },
+  runs: { label: 'Runs', color: 'var(--success)' },
 } satisfies ChartConfig;
 
 /** Overview: totals, the last 30 days, and what happened recently. */
@@ -37,11 +38,13 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
     void load();
   }, [load]);
 
-  const tiles: { label: string; value?: number; hint?: string; go?: Section }[] = [
+  const tiles: { label: string; value?: number | string; hint?: string; go?: Section }[] = [
     { label: 'Total users', value: stats?.users, hint: stats ? `${stats.admins} admin${stats.admins === 1 ? '' : 's'}` : undefined, go: 'users' },
     { label: 'New this week', value: stats?.new_7d, hint: 'signed up in the last 7 days', go: 'users' },
     { label: 'Active this week', value: stats?.active_7d, hint: 'opened the app in the last 7 days', go: 'users' },
     { label: 'Workouts this week', value: stats?.workouts_7d, hint: stats ? `${stats.workouts.toLocaleString('en-IN')} in total` : undefined, go: 'workouts' },
+    { label: 'Runs this week', value: stats?.runs_7d, hint: stats ? `${(stats.runs ?? 0).toLocaleString('en-IN')} in total` : undefined, go: 'runs' },
+    { label: 'Km run this week', value: stats ? Number(stats.run_km_7d ?? 0).toLocaleString('en-IN') : undefined, hint: stats ? `${Number(stats.run_km ?? 0).toLocaleString('en-IN')} km in total` : undefined, go: 'runs' },
   ];
 
   const daily = (stats?.daily ?? []).map((d) => ({
@@ -60,12 +63,12 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
 
       {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {tiles.map((t) => (
           <Card key={t.label} className="cursor-pointer gap-1 py-4 transition-colors hover:bg-muted/40" onClick={() => t.go && onGo(t.go)}>
             <CardHeader className="px-4">
               <CardDescription>{t.label}</CardDescription>
-              <CardTitle className="text-3xl tabular">{t.value == null ? <Skeleton className="h-8 w-16" /> : t.value.toLocaleString('en-IN')}</CardTitle>
+              <CardTitle className="text-3xl tabular">{t.value == null ? <Skeleton className="h-8 w-16" /> : typeof t.value === 'number' ? t.value.toLocaleString('en-IN') : t.value}</CardTitle>
             </CardHeader>
             {t.hint && <CardContent className="px-4 text-xs text-muted-foreground">{t.hint}</CardContent>}
           </Card>
@@ -84,7 +87,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
       <Card>
         <CardHeader>
           <CardTitle>Last 30 days</CardTitle>
-          <CardDescription>New users and workouts logged per day (India time)</CardDescription>
+          <CardDescription>New users, workouts and runs per day (India time)</CardDescription>
         </CardHeader>
         <CardContent className="px-2 sm:px-6">
           {stats ? (
@@ -96,6 +99,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
                 <ChartTooltip cursor={{ fill: 'var(--muted)' }} content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="workouts" fill="var(--color-workouts)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="runs" fill="var(--color-runs)" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="signups" fill="var(--color-signups)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ChartContainer>
@@ -108,7 +112,7 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
       <Card className="gap-0 pb-0">
         <CardHeader className="border-b pb-4">
           <CardTitle>Recent activity</CardTitle>
-          <CardDescription>Sign-ups, workouts and admin actions</CardDescription>
+          <CardDescription>Sign-ups, workouts, runs and admin actions</CardDescription>
           <CardAction>
             <Button variant="ghost" size="sm" onClick={() => onGo('workouts')}>
               All workouts
@@ -134,10 +138,11 @@ export function AdminDashboard({ onGo }: { onGo: (s: Section) => void }) {
                       'size-8 rounded-md',
                       a.kind === 'signup' && 'bg-success-soft text-success',
                       a.kind === 'workout' && 'bg-accent text-accent-foreground',
+                      a.kind === 'run' && 'bg-success-soft text-success',
                       a.kind === 'admin' && 'bg-destructive/10 text-destructive',
                     )}
                   >
-                    {a.kind === 'signup' ? <UserPlus /> : a.kind === 'workout' ? <Dumbbell /> : <ShieldCheck />}
+                    {a.kind === 'signup' ? <UserPlus /> : a.kind === 'workout' ? <Dumbbell /> : a.kind === 'run' ? <Footprints /> : <ShieldCheck />}
                   </ItemMedia>
                   <ItemContent className="min-w-0">
                     <ItemTitle className="w-full truncate">{activityText(a)}</ItemTitle>
@@ -158,5 +163,6 @@ function activityText(a: AdminActivity): string {
   const who = displayName(a);
   if (a.kind === 'signup') return `${who} joined${a.detail === 'google' ? ' with Google' : ''}`;
   if (a.kind === 'workout') return `${who} logged “${a.detail || 'Workout'}”`;
+  if (a.kind === 'run') return `${who} did a ${a.detail || 'run'}`;
   return `Admin: ${a.detail ?? ''}`;
 }
