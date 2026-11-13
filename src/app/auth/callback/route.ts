@@ -1,6 +1,7 @@
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeNext } from '@/lib/supabase/env';
+import { BLOCKED_MESSAGE } from '@/components/auth/errors';
 import { createSupabaseServer } from '@/lib/supabase/server';
 
 /**
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     error = 'This link is missing information.';
   }
 
+  if (error && /banned/i.test(error)) return go(`/login?error=${encodeURIComponent(BLOCKED_MESSAGE)}`);
   if (error) return go(`/login?error=${encodeURIComponent('This link is invalid or has expired. Please try again.')}`);
   return go(next);
 }

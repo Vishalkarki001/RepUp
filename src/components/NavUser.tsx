@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronsUpDown, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus } from 'lucide-react';
 import {
   DropdownMenu,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useAccount, type Account } from '@/lib/account';
-import { openAdminDashboard } from '@/lib/nav';
 import { syncNow } from '@/lib/sync';
 import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
@@ -62,6 +62,7 @@ export function AccountMenu({
   align?: 'start' | 'center' | 'end';
 }) {
   const account = useAccount();
+  const router = useRouter();
   const [open, setOpen] = useState<null | 'profile' | 'settings'>(null);
   if (!account) return null;
 
@@ -79,7 +80,7 @@ export function AccountMenu({
           {/* Only for the admin account. */}
           {account.role === 'admin' && (
             <>
-              <DropdownMenuItem variant="destructive" className="font-medium" onSelect={() => openAdminDashboard()}>
+              <DropdownMenuItem variant="destructive" className="font-medium" onSelect={() => router.push('/admin')}>
                 <ShieldCheck /> Admin dashboard
               </DropdownMenuItem>
               <DropdownMenuSeparator />

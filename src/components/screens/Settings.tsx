@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Download, Loader2, LogOut, Pencil, RefreshCw, Trash2, Upload, UserX } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, LogOut, Pencil, RefreshCw, Trash2, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -9,7 +9,6 @@ import { deleteAccount, useAccount } from '@/lib/account';
 import { actions, useAppState } from '@/lib/store';
 import { syncNow, useSyncStatus } from '@/lib/sync';
 import { setThemePref, useTheme, type ThemePref } from '@/lib/theme';
-import { todayISO } from '@/lib/utils';
 import { logOutWithCheck } from '../account-actions';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
@@ -24,33 +23,8 @@ const THEMES: { id: ThemePref; label: string }[] = [
 
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { settings, workouts } = useAppState();
+  const { settings } = useAppState();
   const { pref } = useTheme();
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const exportData = () => {
-    const blob = new Blob([actions.exportJSON()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `repup-backup-${todayISO()}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast.success('Backup saved to your downloads');
-  };
-
-  const importData = async (file: File) => {
-    const text = await file.text();
-    const ok = await confirmDialog({
-      title: 'Restore this backup?',
-      message: 'Everything currently in the app will be replaced by the backup.',
-      confirmLabel: 'Restore',
-      danger: true,
-    });
-    if (!ok) return;
-    if (actions.importJSON(text)) toast.success('Backup restored');
-    else toast.error('This file is not a valid RepUp backup.');
-  };
 
   return (
     <Modal title="Settings" onClose={onClose}>
@@ -104,37 +78,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <FieldDescription className="text-xs">Pick once. Switching later does not convert numbers you already saved.</FieldDescription>
         </FieldSet>
 
-        <FieldSet className="gap-2">
-          <FieldLegend variant="label" className="mb-0">
-            Backup{' '}
-            <span className="font-normal text-muted-foreground">
-              ({workouts.length} workouts saved on this device)
-            </span>
-          </FieldLegend>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="h-10" onClick={exportData}>
-              <Download /> Save backup
-            </Button>
-            <Button variant="outline" className="h-10" onClick={() => fileRef.current?.click()}>
-              <Upload /> Restore
-            </Button>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void importData(f);
-              e.target.value = '';
-            }}
-          />
-          <FieldDescription className="text-xs">
-            Your workouts are saved to your account automatically. A backup file is an extra copy you keep yourself.
-          </FieldDescription>
-        </FieldSet>
-
         <FieldSet className="gap-1">
           <FieldLegend variant="label" className="mb-0">
             Install on your phone
@@ -155,7 +98,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           const ok = await confirmDialog({
             title: 'Delete everything?',
             message:
-              'All workouts, plans, body weights and settings in your account will be deleted (your login stays). Save a backup first if you might want them. This cannot be undone.',
+              'All workouts, plans, body weights and settings in your account will be deleted (your login stays). Want a copy first? Open a workout and tap Download PDF. This cannot be undone.',
             confirmLabel: 'Delete everything',
             danger: true,
           });

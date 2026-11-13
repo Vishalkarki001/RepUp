@@ -1,10 +1,13 @@
 import type { AuthError } from '@supabase/supabase-js';
 
+export const BLOCKED_MESSAGE = 'This account has been blocked. If you think this is a mistake, email repup.contact@gmail.com.';
+
 /** Turn Supabase auth errors into short, friendly sentences. */
 export function friendlyAuthError(err: AuthError | Error | null | undefined): string {
   if (!err) return 'Something went wrong. Please try again.';
   const code = 'code' in err ? (err.code as string | undefined) : undefined;
   const msg = err.message.toLowerCase();
+  if (code === 'user_banned' || msg.includes('banned')) return BLOCKED_MESSAGE;
   if (code === 'invalid_credentials' || msg.includes('invalid login credentials')) return 'Email or password is wrong.';
   if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) return 'Please confirm your email first — check your inbox.';
   if (code === 'user_already_exists' || msg.includes('already registered')) return 'An account with this email already exists. Log in instead.';

@@ -17,7 +17,7 @@ export default function TermsPage() {
     <LegalPage
       path={PATH}
       title="Terms of use"
-      updated="12 November 2026"
+      updated="13 November 2026"
       intro={
         <p>
           By creating a RepUp account or using the app, you agree to these terms. They are short on purpose. If you do not agree,
@@ -45,7 +45,7 @@ export default function TermsPage() {
       <section>
         <h2>Your data</h2>
         <p>
-          Your workouts belong to you. You can download them (Settings → Backup) or delete your account at any time (Settings →
+          Your workouts belong to you. You can download any workout as a PDF, ask us for a copy of all your data, or delete your account at any time (Settings →
           Delete my account). How we handle your data is explained in our <a href="/privacy">privacy policy</a>.
         </p>
       </section>
@@ -72,7 +72,7 @@ export default function TermsPage() {
         <h2>Limits of responsibility</h2>
         <p>
           RepUp is provided “as is”, free of charge. As far as the law allows, we are not responsible for injuries, lost data or
-          other losses from using the app. Keep a backup of anything important to you.
+          other losses from using the app. Download a PDF of any workout you want to keep a separate copy of.
         </p>
       </section>
 

@@ -16,8 +16,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '@/components/ui/sidebar';
-import { refreshProfile, setAccountFromUser, useAccount } from '@/lib/account';
-import { onOpenAdminDashboard } from '@/lib/nav';
+import { refreshProfile, setAccountFromUser } from '@/lib/account';
 import { switchUser, useAppState } from '@/lib/store';
 import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
@@ -26,7 +25,6 @@ import type { WorkoutSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
 import { NavUser } from './NavUser';
-import { AdminScreen } from './screens/Admin';
 import { ActiveWorkout } from './screens/ActiveWorkout';
 import { HistoryScreen } from './screens/History';
 import { LibraryScreen } from './screens/Library';
@@ -35,7 +33,7 @@ import { ProgressScreen } from './screens/Progress';
 import { SummaryModal } from './screens/SummaryModal';
 import { TodayScreen } from './screens/Today';
 
-type Tab = 'today' | 'history' | 'progress' | 'library' | 'admin';
+type Tab = 'today' | 'history' | 'progress' | 'library';
 
 const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Workout', icon: Dumbbell },
@@ -55,12 +53,17 @@ export function App() {
 
     (async () => {
       // getUser() asks the Auth server, so a forged/expired cookie can't get in.
-      let user = (await db.auth.getUser()).data.user;
-      if (!user && typeof navigator !== 'undefined' && !navigator.onLine) {
+      const checked = await db.auth.getUser();
+      let user = checked.data.user;
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (!user && offline) {
         // Offline at the gym: trust the saved session just to open this device's own copy.
         user = (await db.auth.getSession()).data.session?.user ?? null;
       }
       if (!user) {
+        // Online and the Auth server said no (signed out elsewhere, blocked or deleted):
+        // drop this device's session cookie first, or /login would send us straight back here.
+        if (checked.error && !offline) await db.auth.signOut({ scope: 'local' });
         window.location.assign('/login');
         return;
       }
@@ -87,8 +90,7 @@ export function App() {
 
 function Shell() {
   const { active, onboarded } = useAppState();
-  const account = useAccount();
-  // Admins open their dashboard from the account menu, so the tabs are the same for everyone.
+  // Admins open the admin panel (/admin) from the account menu, so the tabs are the same for everyone.
   const TABS = BASE_TABS;
   useSyncToasts();
   const [tab, setTab] = useState<Tab>('today');
@@ -104,7 +106,6 @@ function Shell() {
     window.scrollTo({ top: 0 });
   }, [tab]);
 
-  useEffect(() => onOpenAdminDashboard(() => setTab('admin')), []);
 
   const showWorkout = tab === 'today' && active;
 
@@ -162,8 +163,6 @@ function Shell() {
           <HistoryScreen onStarted={() => setTab('today')} />
         ) : tab === 'progress' ? (
           <ProgressScreen />
-        ) : tab === 'admin' && account?.role === 'admin' ? (
-          <AdminScreen />
         ) : (
           <LibraryScreen />
         )}
