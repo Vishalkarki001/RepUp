@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Item, ItemContent, ItemGroup } from '@/components/ui/item';
 import { Textarea } from '@/components/ui/textarea';
 import { actions, exerciseMap, getState, toWorkoutExercise, useAppState } from '@/lib/store';
+import { downloadWorkoutPdf } from '@/lib/exportPdf';
 import type { Exercise, Workout } from '@/lib/types';
 import {
   cn,
@@ -238,7 +239,19 @@ export function WorkoutDetail({
 }) {
   const [draft, setDraft] = useState<Workout | null>(null);
   const [picking, setPicking] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const name = (id: string) => exMap.get(id)?.name ?? 'Deleted exercise';
+
+  const exportPdf = async () => {
+    setExporting(true);
+    try {
+      await downloadWorkoutPdf(workout, name);
+    } catch {
+      toast.error('Couldn’t make the PDF. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Forgot an exercise? Add it to the finished workout with empty sets to fill in (empty sets are dropped on save).
   const addExercises = (ids: string[]) =>
@@ -337,6 +350,9 @@ export function WorkoutDetail({
               }}
             >
               <Trash2 /> Delete
+            </Button>
+            <Button variant="outline" className="h-10 basis-full" disabled={exporting} onClick={exportPdf}>
+              {exporting ? <Loader2 className="animate-spin" /> : <Download />} Download PDF
             </Button>
           </div>
         )
