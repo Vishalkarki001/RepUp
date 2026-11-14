@@ -106,27 +106,53 @@ export function useNow(intervalMs = 1000): number {
 /** Keeps the phone screen on while `on` is true (re-acquired when the app comes back to the front). */
 export function useWakeLock(on: boolean): void {
   useEffect(() => {
-    if (!on || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    if (!on || typeof document === 'undefined') return;
     let lock: WakeLockSentinel | null = null;
+    let video: HTMLVideoElement | null = null;
     let cancelled = false;
+    /**
+     * Backup for browsers without the Wake Lock API (older iPhones, some in-app
+     * browsers): a tiny silent video playing in a loop also keeps the screen on.
+     */
+    const playVideo = () => {
+      if (!video) {
+        video = document.createElement('video');
+        video.src = '/keep-awake.mp4';
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('aria-hidden', 'true');
+        video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0';
+        document.body.appendChild(video);
+      }
+      void video.play().catch(() => {});
+    };
     const acquire = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!('wakeLock' in navigator)) return playVideo();
       try {
-        if (document.visibilityState !== 'visible') return;
         lock = await navigator.wakeLock.request('screen');
         if (cancelled) void lock.release();
       } catch {
-        /* denied, low battery, unsupported */
+        playVideo(); // denied (e.g. low battery mode): try the video
       }
     };
     const onVisible = () => {
       if (document.visibilityState === 'visible') void acquire();
     };
+    // Some browsers only allow it after a tap: try again on the next one.
+    const onTap = () => void acquire();
     void acquire();
     document.addEventListener('visibilitychange', onVisible);
+    document.addEventListener('pointerdown', onTap, { once: true });
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisible);
+      document.removeEventListener('pointerdown', onTap);
       void lock?.release().catch(() => {});
+      video?.pause();
+      video?.remove();
     };
   }, [on]);
 }

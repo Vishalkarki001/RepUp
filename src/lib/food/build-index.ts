@@ -1,8 +1,8 @@
-import { makeSearchable, normalizeText, type Food, type Searchable, type Serving } from './core';
+import { cleanMicro, makeSearchable, normalizeText, type Food, type Searchable, type Serving } from './core';
 import type { FoodRow } from './foods';
 
-/** Row of indb.json: [name, kcal, protein, carbs, fat, serving label, serving grams]. */
-export type IndbRow = [string, number, number, number, number, string, number];
+/** Row of indb.json: [name, kcal, protein, carbs, fat, serving label, serving grams, other nutrients per 100 g]. */
+export type IndbRow = [string, number, number, number, number, string, number, Record<string, number>?];
 
 const STOP = new Set(['plain', 'cooked', 'with', 'and', 'ki', 'ka', 'ke']);
 const slug = (s: string) => normalizeText(s).replace(/ /g, '-').slice(0, 60);
@@ -17,8 +17,11 @@ function servingsFrom(spec: string): Serving[] {
     .filter((s) => s.label && s.grams > 0);
 }
 
+/** Other nutrients for our own foods, by name (built by scripts/build-curated-micro.mjs). */
+export type CuratedMicro = Record<string, { src: string; micro: Record<string, number> }>;
+
 /** Exported for tests (they pass the JSON in themselves). */
-export function buildIndex(foods: FoodRow[], indb: IndbRow[]): Searchable[] {
+export function buildIndex(foods: FoodRow[], indb: IndbRow[], curated: CuratedMicro = {}): Searchable[] {
   const out: Searchable[] = [];
   /** Word sets of our own names: a recipe-book food whose words all appear in one of ours is the same food. */
   const ours: Set<string>[] = [];
@@ -33,11 +36,12 @@ export function buildIndex(foods: FoodRow[], indb: IndbRow[]): Searchable[] {
       approx: flags.includes('a'),
       oil: flags.includes('o'),
       liquid: flags.includes('l'),
+      micro: cleanMicro(curated[name]?.micro),
     };
     ours.push(new Set(words(name)));
     out.push(makeSearchable(food, aliases));
   }
-  for (const [name, kcal, protein, carbs, fat, unit, grams] of indb) {
+  for (const [name, kcal, protein, carbs, fat, unit, grams, micro] of indb) {
     const w = words(name);
     if (w.length && ours.some((set) => w.every((x) => set.has(x)))) continue; // our own entry wins
     const food: Food = {
@@ -47,6 +51,7 @@ export function buildIndex(foods: FoodRow[], indb: IndbRow[]): Searchable[] {
       per100: { kcal, protein, carbs, fat },
       servings: unit && grams ? [{ label: unit, grams }] : [],
       approx: true,
+      micro: cleanMicro(micro),
     };
     out.push(makeSearchable(food));
   }

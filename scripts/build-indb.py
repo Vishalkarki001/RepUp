@@ -10,7 +10,10 @@ Only believable rows are kept:
   - deep-fried recipes where the book counts all the frying oil (fat > 72 % of kcal,
     e.g. poori 738 kcal/100 g) are dropped: RepUp's own list has realistic values for those;
   - spice mixes / powders / pastes / stocks are dropped (not eaten as a food).
-Row: [name, kcal, protein, carbs, fat, serving label, serving grams]
+Row: [name, kcal, protein, carbs, fat, serving label, serving grams, other nutrients per 100 g]
+Other nutrients use the app's keys and units (see NUTRIENTS in src/lib/food/core.ts). Not taken:
+INDB's "free sugar" (not total sugar), vitamin A (different definition from the app's µg RAE) and
+cholesterol (missing for dairy in IFCT, so INDB shows 0 for milk, paneer, kheer: wrong, not zero).
 """
 import json, re, sys
 import openpyxl
@@ -23,6 +26,13 @@ h = {k: i for i, k in enumerate(rows[0])}
 SKIP = re.compile(r'\b(powder|masala mix|spice blend|paste|stock|essence|phoran|garam masala|dough|batter|syrup for|tempering)\b', re.I)
 FATTY_OK = re.compile(r'\b(ghee|butter|oil|nut|nuts|almond|cashew|peanut|walnut|coconut|seed|seeds|chocolate|mayonnaise|cream)\b', re.I)
 
+# INDB column → (app key, factor to the app's unit)
+MICRO = {
+    'fibre_g': ('fiber', 1), 'sfa_mg': ('satFat', 0.001),
+    'sodium_mg': ('sodium', 1), 'potassium_mg': ('potassium', 1), 'calcium_mg': ('calcium', 1),
+    'iron_mg': ('iron', 1), 'magnesium_mg': ('magnesium', 1), 'zinc_mg': ('zinc', 1),
+    'vitc_mg': ('vitaminC', 1), 'folate_ug': ('folate', 1),
+}
 kept, dropped = [], {'macros': 0, 'fried': 0, 'skip': 0}
 for r in rows[1:]:
     name = re.sub(r'\s+', ' ', str(r[h['food_name']] or '')).strip()
@@ -46,7 +56,13 @@ for r in rows[1:]:
     grams = round(float(uk) / k * 100) if uk and k else 0
     if not unit or not (5 <= grams <= 1000):
         unit, grams = '', 0
-    kept.append([name[0].upper() + name[1:], round(k), round(p, 1), round(c, 1), round(f, 1), unit, grams])
+    micro = {}
+    for col, (key, factor) in MICRO.items():
+        v = r[h[col]]
+        if v is None or v == '' or not isinstance(v, (int, float)) or v < 0:
+            continue
+        micro[key] = round(float(v) * factor, 2 if key in ('satFat', 'iron', 'zinc') else 1)
+    kept.append([name[0].upper() + name[1:], round(k), round(p, 1), round(c, 1), round(f, 1), unit, grams, micro])
 
 kept.sort(key=lambda x: x[0].lower())
 with open(out, 'w') as fh:

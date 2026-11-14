@@ -34,6 +34,10 @@ export interface TrackState {
   steps: number;
   /** Seconds where fixes stopped (screen off / app in background). */
   gapS: number;
+  /** Metres added across those gaps (the phone wasn't tracking). */
+  gapM?: number;
+  /** Steps added by estimate for screen-off gaps (the rest were counted by the sensor). */
+  stepsGuessed?: number;
   /** Latest GPS accuracy, for the "weak GPS" hint. */
   accuracy: number | null;
   tempC: number | null;
@@ -61,6 +65,7 @@ export function newTrack(kind: RunKind, now: number): TrackState {
     rejected: 0,
     steps: 0,
     gapS: 0,
+    gapM: 0,
     accuracy: null,
     tempC: null,
     weatherCode: null,
@@ -122,12 +127,104 @@ export function addFix(s: TrackState, fix: Fix, now: number): TrackState {
 
   const distanceM = s.distanceM + d;
   const gapS = dt > GAP_S ? s.gapS + dt : s.gapS;
+  const gapM = dt > GAP_S ? (s.gapM ?? 0) + d : (s.gapM ?? 0);
   const last = s.route[s.route.length - 1];
   const route = !last || haversine(last[0], last[1], fix.lat, fix.lng) >= ROUTE_STEP_M ? [...s.route, point] : s.route;
   const kmMarks = [...s.kmMarks];
   const sec = movingMs(s, now) / 1000;
   while (distanceM >= (kmMarks.length + 1) * 1000) kmMarks.push(sec);
-  return { ...next, lastFix: fix, rejected: 0, distanceM, gapS, route, kmMarks };
+  return { ...next, lastFix: fix, rejected: 0, distanceM, gapS, gapM, route, kmMarks };
+}
+
+/* ------------------------------------------------------------------ */
+/* screen-off gaps                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A stretch where the phone stopped tracking (screen off, app closed). Browsers
+ * give no GPS or step readings then, so on return we ask whether you kept
+ * moving and fill the gap from your pace and step rhythm just before it.
+ */
+export interface Gap {
+  /** When tracking stopped / came back (ms). */
+  from: number;
+  to: number;
+  /** Last position before the gap (for the straight-line distance). */
+  fromFix: Fix | null;
+  /** Speed (m/s) and step rhythm (steps a minute, from the sensor) just before. Null when unknown. */
+  speed: number | null;
+  cadence: number | null;
+  /** The phone closed the app (the run was brought back paused). */
+  restored?: boolean;
+}
+
+/** moving: you kept going · stopped: you rested (the time doesn't count) · line: not sure (straight line only). */
+export type GapAnswer = 'moving' | 'stopped' | 'line';
+
+/** Shortest gap worth asking about. */
+export const GAP_ASK_S = 20;
+
+/**
+ * When the gap comes too early to know your own rhythm (e.g. 15 steps in):
+ * typical step rate (steps a minute) and speed (m/s) for a steady walk / easy run.
+ */
+export const TYPICAL_CADENCE: Record<RunKind, number> = { walk: 110, run: 165 };
+export const TYPICAL_SPEED: Record<RunKind, number> = { walk: 1.35, run: 2.8 };
+
+/** What a gap adds for each answer (also shown on the buttons). */
+export function gapFill(g: Gap, answer: GapAnswer, kind: RunKind, toFix: Fix | null): { distanceM: number; steps: number; countTime: boolean } {
+  const seconds = Math.max(0, (g.to - g.from) / 1000);
+  const line = g.fromFix && toFix ? haversine(g.fromFix.lat, g.fromFix.lng, toFix.lat, toFix.lng) : 0;
+  const cap = MAX_SPEED[kind] * seconds; // never faster than a person can move
+  if (answer === 'moving') {
+    // Your own pace and rhythm from just before; typical ones if the gap came too early to know them.
+    const speed = g.speed && g.speed > 0.3 ? g.speed : TYPICAL_SPEED[kind];
+    const distanceM = Math.min(cap, Math.max(line, speed * seconds));
+    const cadence = g.cadence && g.cadence > 30 ? g.cadence : g.speed && g.speed > 0.3 ? null : TYPICAL_CADENCE[kind];
+    const steps = cadence ? Math.round((cadence * seconds) / 60) : estimateSteps(distanceM, kind);
+    return { distanceM, steps, countTime: true };
+  }
+  const distanceM = Math.min(cap, line);
+  return { distanceM, steps: estimateSteps(distanceM, kind), countTime: answer === 'line' };
+}
+
+/**
+ * Adds a gap to the run: distance, km marks inside it, and the time
+ * (removed when you say you stopped; added back when the app had been closed).
+ * Returns the steps to add to the step count.
+ */
+export function applyGap(s: TrackState, g: Gap, answer: GapAnswer, toFix: Fix | null, now: number): { track: TrackState; addSteps: number } {
+  const fill = gapFill(g, answer, s.kind, toFix);
+  const ms = Math.max(0, g.to - g.from);
+  let { activeMs, resumedAt } = s;
+  if (g.restored) {
+    // The run was brought back paused at the moment it was last saved: the gap isn't in the clock yet.
+    if (fill.countTime) activeMs += ms;
+  } else if (!fill.countTime && resumedAt !== null) {
+    // Running clock already includes the gap: take it out.
+    resumedAt = Math.min(now, resumedAt + ms);
+  }
+  const startSec = (g.restored ? s.activeMs : movingMs(s, g.from)) / 1000;
+  const gapSec = fill.countTime ? ms / 1000 : 0;
+  const kmMarks = [...s.kmMarks];
+  const distanceM = s.distanceM + fill.distanceM;
+  while (distanceM >= (kmMarks.length + 1) * 1000) {
+    const into = (kmMarks.length + 1) * 1000 - s.distanceM;
+    kmMarks.push(Math.round((startSec + (fill.distanceM > 0 ? (into / fill.distanceM) * gapSec : gapSec)) * 10) / 10);
+  }
+  return {
+    track: {
+      ...s,
+      activeMs,
+      resumedAt,
+      distanceM,
+      kmMarks,
+      gapS: s.gapS + ms / 1000,
+      gapM: (s.gapM ?? 0) + fill.distanceM,
+      stepsGuessed: (s.stepsGuessed ?? 0) + fill.steps,
+    },
+    addSteps: fill.steps,
+  };
 }
 
 /**
@@ -236,7 +333,8 @@ export function finishRun(
     durationS,
     distanceM,
     steps,
-    stepsSource: steps === null ? undefined : opts.sensorSteps !== null && opts.sensorSteps > 0 ? 'sensor' : 'estimate',
+    // Counted by the sensor the whole way → 'sensor'; partly worked out from distance (screen was off) → 'estimate' (shown with ~).
+    stepsSource: steps === null ? undefined : opts.sensorSteps !== null && opts.sensorSteps > 0 && !(s.stepsGuessed ?? 0) ? 'sensor' : 'estimate',
     calories: estimateCalories(distanceM, s.kind, opts.weightKg),
     tempC: s.tempC,
     weatherCode: s.weatherCode,

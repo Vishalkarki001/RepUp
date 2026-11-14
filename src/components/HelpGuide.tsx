@@ -186,8 +186,8 @@ const FOOD_STEPS: typeof STEPS = [
     title: 'Check your day',
     body: (
       <>
-        The top card shows calories eaten and left. <b>Progress</b> shows your week, your streak and your weight. <b>Download PDF</b>{' '}
-        saves the day.
+        The top card shows calories eaten and left: tap it for every nutrient (fibre, iron, vitamins…). <b>Progress</b> shows your
+        week, your streak and your weight. <b>Download PDF</b> saves the day.
       </>
     ),
   },

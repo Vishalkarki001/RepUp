@@ -12,7 +12,10 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle }
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   believable,
+  cleanMicro,
   foodFromLog,
+  microFor,
+  NUTRIENTS,
   makeSearchable,
   nutrientsFor,
   r1,
@@ -23,14 +26,14 @@ import {
   type OilLevel,
 } from '@/lib/food/core';
 import { actions, useAppState } from '@/lib/store';
-import { supabase } from '@/lib/supabase/client';
-import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { MEAL_LABELS, MEALS, type FoodLog, type Meal } from '@/lib/types';
-import { uid } from '@/lib/utils';
+import { cn, uid } from '@/lib/utils';
 import { Modal } from '../Modal';
 import { NumberField } from '../NumberField';
+import { barcodeVariants, fetchOffProduct, foodFromOff, type BarcodeResult } from '@/lib/food/off';
+import { shareFood } from '@/lib/food/share';
 import { BarcodeScanner } from './BarcodeScanner';
-import { amountLabel, fmtKcal, logMacros, SourceBadge, useLocalFoods } from './FoodParts';
+import { amountLabel, fmtKcal, fmtNutrient, logMacros, SourceBadge, useLocalFoods } from './FoodParts';
 
 type Step =
   | { kind: 'search' }
@@ -430,7 +433,8 @@ function AmountStep({
   const save = () => {
     if (!valid || amount === null) return;
     const name = food.brand && !food.name.toLowerCase().includes(food.brand.toLowerCase()) ? `${food.name} · ${food.brand}` : food.name;
-    const entry = { meal, foodId: food.id, name: name.slice(0, 160), amount: r1(amount * 100) / 100, unit, grams, ...n, source: food.kind };
+    const micro = microFor(food, grams);
+    const entry = { meal, foodId: food.id, name: name.slice(0, 160), amount: r1(amount * 100) / 100, unit, grams, ...n, source: food.kind, ...(micro ? { micro } : {}) };
     if (edit) {
       actions.updateFoodLog(edit.id, entry);
       toast.success('Saved');
@@ -552,10 +556,39 @@ function AmountStep({
           {edit ? 'Save' : `Add to ${MEAL_LABELS[meal]}`}
         </Button>
       </div>
+      <MoreNutrients food={food} grams={valid ? grams : 0} />
       {food.approx && (
         <p className="-mt-1 text-center text-[11px] text-muted-foreground">Home-style recipe: real calories change with how it’s made.</p>
       )}
     </>
+  );
+}
+
+/** "More nutrients" under the amount: fibre, sugar, sodium… for this amount (only those the source has). */
+function MoreNutrients({ food, grams }: { food: Food; grams: number }) {
+  const [open, setOpen] = useState(false);
+  const micro = microFor(food, grams);
+  const rows = NUTRIENTS.filter((n) => micro?.[n.key] !== undefined);
+  if (!rows.length) return null;
+  return (
+    <div className="-mt-1 rounded-lg border">
+      <button type="button" className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        More nutrients ({rows.length})
+        <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-90')} />
+      </button>
+      {open && (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 border-t px-3 py-2.5 text-xs">
+          {rows.map((n) => (
+            <div key={n.key} className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">{n.label}</dt>
+              <dd className="font-medium tabular">
+                {fmtNutrient(micro![n.key]!, n.unit)} {n.unit}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -628,18 +661,6 @@ function QuickAdd({
   );
 }
 
-interface CatalogRow {
-  id: string;
-  source: 'usda' | 'off' | 'user';
-  name: string;
-  brand: string | null;
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  servings: { label: string; grams: number }[] | null;
-  liquid: boolean;
-}
 
 /** A food typed from its pack label. Shared with everyone (marked "User added") once the numbers add up. */
 function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, onSaved }: { barcode?: string; name?: string; brand?: string; onSaved: (f: Food) => void }) {
@@ -652,6 +673,10 @@ function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, on
   const [c, setC] = useState<number | null>(null);
   const [f, setF] = useState<number | null>(null);
   const [serving, setServing] = useState<number | null>(null);
+  const [fiber, setFiber] = useState<number | null>(null);
+  const [sugar, setSugar] = useState<number | null>(null);
+  const [satFat, setSatFat] = useState<number | null>(null);
+  const [sodium, setSodium] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const filled = name.trim().length >= 2 && kcal !== null && p !== null && c !== null && f !== null;
   const per100 = { kcal: kcal ?? 0, protein: p ?? 0, carbs: c ?? 0, fat: f ?? 0 };
@@ -662,44 +687,27 @@ function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, on
     if (!adds) return;
     setSaving(true);
     const servings = serving && serving > 0 && serving <= 2000 ? [{ label: 'serving', grams: serving }] : [];
-    let food: Food | null = null;
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase().rpc('add_food', {
-        p_name: name.trim(),
-        p_brand: brand.trim(),
-        p_barcode: /^\d{6,14}$/.test(barcode) ? barcode : '',
-        p_kcal: per100.kcal,
-        p_protein: per100.protein,
-        p_carbs: per100.carbs,
-        p_fat: per100.fat,
-        p_servings: servings,
-        p_liquid: liquid,
-      });
-      const r = data as CatalogRow | null;
-      if (!error && r) {
-        food = {
-          id: r.id,
-          name: r.name,
-          brand: r.brand ?? undefined,
-          kind: r.source,
-          per100: { kcal: Math.round(Number(r.kcal)), protein: Number(r.protein), carbs: Number(r.carbs), fat: Number(r.fat) },
-          servings: r.servings ?? [],
-          liquid: r.liquid,
-        };
-        toast.success(r.source === 'user' ? 'Saved. Everyone can find it now' : 'This barcode was already known: using its label values');
-      } else if (error && /too many/i.test(error.message)) {
-        toast.error('You’ve added a lot of foods today. It’s saved just for you.');
-      }
-    }
+    const micro = cleanMicro({ fiber, sugar, satFat, sodium });
+    const res = await shareFood({ name, brand, barcode, per100, servings, liquid, micro });
+    if (res.status === 'shared') toast.success('Saved. Everyone can find it now');
+    else if (res.status === 'known') toast.success('This barcode was already in the list: using its label values');
+    else if (res.status === 'limit') toast.error('You’ve added a lot of foods today. It’s saved just for you.');
     // Offline or not shared: still usable, just for you.
-    food ??= { id: `quick:${uid()}`, name: name.trim(), brand: brand.trim() || undefined, kind: 'quick', per100, servings, liquid };
+    const food: Food = res.food ?? { id: `quick:${uid()}`, name: name.trim(), brand: brand.trim() || undefined, kind: 'quick', per100, servings, liquid, micro };
     setSaving(false);
     onSaved(food);
   };
 
   return (
     <>
-      <p className="text-sm text-muted-foreground">Copy the numbers from the nutrition table on the pack. Everyone using RepUp will be able to find it.</p>
+      {scanned ? (
+        <p className="rounded-lg bg-accent/60 px-3 py-2 text-sm text-accent-foreground">
+          Barcode <b className="tabular">{scanned}</b> isn’t in the food list yet. Copy the numbers from the pack once, and it will scan
+          straight away for you and everyone after that.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">Copy the numbers from the nutrition table on the pack. Everyone using RepUp will be able to find it.</p>
+      )}
       <Field className="gap-1">
         <FieldLabel htmlFor="label-name" className="text-xs font-normal text-muted-foreground">
           Food name
@@ -742,6 +750,12 @@ function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, on
         <NumberField label="Fat (g)" value={f} onValue={setF} decimal />
       </div>
       <NumberField label={`One serving (${unit}), optional`} value={serving} onValue={setServing} decimal placeholder="30" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <NumberField label="Fibre (g), optional" value={fiber} onValue={setFiber} decimal />
+        <NumberField label="Sugar (g), optional" value={sugar} onValue={setSugar} decimal />
+        <NumberField label="Sat. fat (g), optional" value={satFat} onValue={setSatFat} decimal />
+        <NumberField label="Sodium (mg), optional" value={sodium} onValue={setSodium} decimal />
+      </div>
       {filled && !adds && (
         <FieldDescription className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
           These numbers don’t add up. Check the label: calories should be about 4 × protein + 4 × carbs + 9 × fat (here{' '}
@@ -755,6 +769,28 @@ function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, on
   );
 }
 
+/** What RepUp's server says about a barcode, or null when it couldn't answer (then the app asks Open Food Facts itself). */
+async function lookupOnServer(code: string): Promise<BarcodeResult | 'signed-out' | null> {
+  try {
+    const res = await fetch(`/api/food/barcode?barcode=${code}`, { headers: { Accept: 'application/json' } });
+    if (res.status === 401) return 'signed-out';
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return null;
+    const data = (await res.json()) as BarcodeResult | { error: string };
+    return 'found' in data ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Backup: the same lookup straight from the phone (Open Food Facts allows it). */
+async function lookupOnOff(code: string): Promise<BarcodeResult> {
+  for (const c of barcodeVariants(code)) {
+    const product = await fetchOffProduct(c);
+    if (product) return foodFromOff(c, product);
+  }
+  return { found: false };
+}
+
 function ScanStep({ onFound, onMissing }: { onFound: (f: Food) => void; onMissing: (s: { barcode: string; name?: string; brand?: string }) => void }) {
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState(0);
@@ -764,16 +800,24 @@ function ScanStep({ onFound, onMissing }: { onFound: (f: Food) => void; onMissin
     busyRef.current = true;
     setBusy(true);
     try {
-      const res = await fetch(`/api/food/barcode?code=${code}`);
-      if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as { found: true; food: Food } | { found: false; name?: string; brand?: string };
-      if (data.found) onFound(data.food);
+      if (!navigator.onLine) throw new Error('offline');
+      let result = await lookupOnServer(code);
+      if (result === 'signed-out') {
+        toast.error('You’ve been signed out. Log in again to look up barcodes.');
+        return setKey((k) => k + 1);
+      }
+      if (!result) {
+        result = await lookupOnOff(code);
+        // Found by the phone itself: add it to the shared list too, so it's there for everyone next time.
+        if (result.found) void shareFood({ ...result.food, barcode: result.food.id.replace(/^off:/, '') });
+      }
+      if (result.found) onFound(result.food);
       else {
-        toast('Not found yet. Add it from the label, and it’ll be there for everyone next time.');
-        onMissing({ barcode: code, name: data.name, brand: data.brand });
+        toast('Not in the food list yet. Add it once from the label: after that it scans for everyone.');
+        onMissing({ barcode: code, name: result.name, brand: result.brand });
       }
     } catch {
-      toast.error(navigator.onLine ? 'Couldn’t look up that barcode. Try again.' : 'You’re offline. Search by name instead.');
+      toast.error(navigator.onLine ? 'Couldn’t look up that barcode. Check your internet and try again, or search by name.' : 'You’re offline. Search by name instead.');
       setKey((k) => k + 1); // restart the camera
     } finally {
       busyRef.current = false;

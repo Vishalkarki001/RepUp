@@ -115,5 +115,7 @@ export const FOOD_FACTS = [
   'Know your calories: maintenance, lose fat (about ½ kg a week) or build muscle targets (Mifflin–St Jeor), or type your own',
   'Progress: calories by day, average kcal and macros, days on target, days-in-a-row streak, body weight chart',
   'Water: glasses a day (250 ml each); download any day as a PDF (runs too)',
-  'LIMIT: home-cooked food is an estimate (marked ~); no micronutrients, no meal plans, not for medical diets',
+  'All nutrients for a day (tap the calories card): fibre, sugar, saturated fat, cholesterol, sodium, potassium, calcium, iron, magnesium, zinc, vitamins A and C, folate, with % Daily Value; shown only for foods whose source measured them',
+  'Daily target: calculated (Mifflin–St Jeor) or set yourself as calories + protein / carbs / fat in % (grams worked out)',
+  'LIMIT: home-cooked food is an estimate (marked ~); not every food has every nutrient; no meal plans, not for medical diets',
 ] as const;

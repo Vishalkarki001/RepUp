@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { cleanMicro } from './food/core';
 import { actions, getState, subscribeState, userKey } from './store';
 import { supabase } from './supabase/client';
 import type { AppState, BodyWeightEntry, DayPlan, Exercise, FoodGoal, FoodLog, RunEntry, Workout } from './types';
@@ -132,6 +133,7 @@ function foodLogRow(uid: string, x: FoodLog): Row {
     fat: clamp(round1(x.fat), 0, 999999),
     source: x.source,
     logged_at: new Date(x.loggedAt).toISOString(),
+    micro: cleanMicro(x.micro) ?? null,
     deleted: false,
   };
 }
@@ -152,6 +154,7 @@ function foodLogFromRow(r: Row): FoodLog {
     fat: Number(r.fat),
     source: (['usda', 'off', 'user', 'quick'] as const).find((x) => x === r.source) ?? 'local',
     loggedAt: Date.parse(String(r.logged_at)),
+    ...(cleanMicro(r.micro) ? { micro: cleanMicro(r.micro) } : {}),
   };
 }
 

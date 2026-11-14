@@ -15,6 +15,9 @@ export function amountLabel(amount: number, unit: string): string {
 }
 
 export const fmtKcal = (n: number) => Math.round(n).toLocaleString('en-IN');
+/** 0.4 g, 12 g, 1,230 mg: one decimal for small numbers, whole numbers above 10. */
+export const fmtNutrient = (n: number, unit: string) =>
+  n >= 10 || unit === 'µg' ? Math.round(n).toLocaleString('en-IN') : String(Math.round(n * 10) / 10);
 export const fmtG = (n: number) => `${Math.round(n)} g`;
 
 /** Small badge saying where the numbers come from. */

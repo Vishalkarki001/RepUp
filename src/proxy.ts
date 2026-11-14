@@ -27,7 +27,9 @@ export async function proxy(request: NextRequest) {
   // Landing pages are the same for everyone: no session work needed.
   if (MARKETING_PATHS.includes(landed.pathname)) return NextResponse.next();
 
-  if ((landed.searchParams.has('code') || landed.searchParams.has('token_hash')) && !landed.pathname.startsWith('/auth/')) {
+  // Never for the app's own API (e.g. a barcode is not a sign-in code).
+  const isApi = landed.pathname.startsWith('/api/');
+  if (!isApi && (landed.searchParams.has('code') || landed.searchParams.has('token_hash')) && !landed.pathname.startsWith('/auth/')) {
     const url = landed.clone();
     url.pathname = '/auth/callback';
     if (!url.searchParams.has('next')) url.searchParams.set('next', landed.pathname === '/login' ? '/' : landed.pathname);
@@ -84,6 +86,14 @@ export async function proxy(request: NextRequest) {
     return res;
   }
 
+  // The app's API answers in JSON: a signed-out call gets 401, not the login page's HTML.
+  if (!signedIn && isApi) {
+    const res = NextResponse.json({ error: 'sign in' }, { status: 401 });
+    response.cookies.getAll().forEach((c) => res.cookies.set(c));
+    res.headers.set('Cache-Control', 'private, no-store');
+    return res;
+  }
+
   if (!signedIn && !isPublic) {
     const next = pathname === '/' ? '' : `?next=${encodeURIComponent(pathname + search)}`;
     return redirectTo(`/login${next}`);
@@ -98,6 +108,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except Next.js assets, icons, the manifest and the service worker.
   matcher: [
-    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map|wasm)$).*)',
+    '/((?!_next/static|_next/image|favicon|icon-|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|sw.js|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|js|css|map|wasm|mp4)$).*)',
   ],
 };

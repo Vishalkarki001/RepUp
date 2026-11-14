@@ -147,6 +147,28 @@ export interface Macros {
  */
 export type FoodSource = 'local' | 'usda' | 'off' | 'user' | 'quick';
 
+/**
+ * Other nutrients (fibre, minerals, vitamins). Every food has only the ones its
+ * source measured, so all are optional. Units: see NUTRIENTS in lib/food/core.ts.
+ */
+export const NUTRIENT_KEYS = [
+  'fiber',
+  'sugar',
+  'satFat',
+  'cholesterol',
+  'sodium',
+  'potassium',
+  'calcium',
+  'iron',
+  'magnesium',
+  'zinc',
+  'vitaminA',
+  'vitaminC',
+  'folate',
+] as const;
+export type NutrientKey = (typeof NUTRIENT_KEYS)[number];
+export type Micro = Partial<Record<NutrientKey, number>>;
+
 /** One food eaten: "1.5 roti at lunch". Totals are for the whole amount. */
 export interface FoodLog extends Macros {
   id: string;
@@ -160,6 +182,8 @@ export interface FoodLog extends Macros {
   grams: number;
   source: FoodSource;
   loggedAt: number;
+  /** Other nutrients for the whole amount (only those the food's source has). */
+  micro?: Micro;
 }
 
 export type Sex = 'male' | 'female';

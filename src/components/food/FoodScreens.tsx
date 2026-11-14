@@ -31,6 +31,7 @@ import { SectionTitle, Stat, StatGrid } from '../common';
 import { NumberField } from '../NumberField';
 import { ScreenHeader } from '../ScreenHeader';
 import { AddFood } from './AddFood';
+import { NutritionSheet } from './NutritionSheet';
 import { amountLabel, fmtKcal, loadLocalFoods, logMacros, MacroBar, macroLine } from './FoodParts';
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon … Sun
@@ -49,6 +50,7 @@ const WATER_GOAL = 8; // glasses of 250 ml ≈ 2 litres
 export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
   const { foodLogs, foodGoal, water } = useAppState();
   const [exporting, setExporting] = useState(false);
+  const [nutrition, setNutrition] = useState(false);
   const now = useNow(60_000);
   const today = todayISO();
   const [date, setDate] = useState(today);
@@ -127,7 +129,15 @@ export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
       )}
 
       {/* Calories: eaten / target, then macros */}
-      <Card className="gap-4 px-4 py-4">
+      {/* Tap anywhere on it for every nutrient of the day. */}
+      <Card
+        className="cursor-pointer gap-4 px-4 py-4 transition-colors hover:bg-muted/30"
+        onClick={() => setNutrition(true)}
+        role="button"
+        tabIndex={0}
+        aria-label="See all nutrients for this day"
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setNutrition(true))}
+      >
         <div className="flex items-end justify-between gap-3">
           <div>
             <div className="text-3xl font-semibold tracking-tight tabular">
@@ -142,7 +152,13 @@ export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
               <div className="text-xs text-muted-foreground">{left < 0 ? 'over' : 'left'}</div>
             </div>
           ) : (
-            <Button size="sm" onClick={onSetGoal}>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSetGoal();
+              }}
+            >
               <Target /> Set daily target
             </Button>
           )}
@@ -159,7 +175,22 @@ export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
           <MacroBar label="Carbs" value={total.carbs} target={foodGoal?.carbs ?? null} />
           <MacroBar label="Fat" value={total.fat} target={foodGoal?.fat ?? null} />
         </div>
+        <div className="-mx-1 -mb-1 flex items-center justify-between border-t pt-2.5 text-xs font-medium text-brand">
+          <span>Fibre, sugar, sodium, iron, vitamins…</span>
+          <span className="flex items-center gap-0.5">
+            All nutrients <ChevronRight className="size-4" />
+          </span>
+        </div>
       </Card>
+      {nutrition && (
+        <NutritionSheet
+          dateLabel={dateLabel(date)}
+          logs={dayLogs}
+          goal={foodGoal}
+          onClose={() => setNutrition(false)}
+          onEditGoal={onSetGoal}
+        />
+      )}
 
       {MEALS.map((meal) => {
         const list = dayLogs.filter((l) => l.meal === meal);
@@ -455,6 +486,8 @@ export function FoodCalories() {
   const [height, setHeight] = useState<number | null>(saved?.heightCm ?? null);
   const [weight, setWeight] = useState<number | null>(saved?.weightKg ?? lastKg);
   const [activity, setActivity] = useState<Activity>(saved?.activity ?? 'light');
+  // Two ways to a target: worked out from your body, or typed in yourself.
+  const [how, setHow] = useState<'calc' | 'manual'>(foodGoal?.plan === 'custom' ? 'manual' : 'calc');
 
   const ok = !!age && age >= 14 && age <= 90 && !!height && height >= 120 && height <= 230 && !!weight && weight >= 30 && weight <= 250;
   const profile: FoodProfile | null = ok ? { sex, age: age!, heightCm: height!, weightKg: weight!, activity } : null;
@@ -469,7 +502,7 @@ export function FoodCalories() {
 
   return (
     <div className="flex flex-col gap-5">
-      <ScreenHeader title="Know your calories" />
+      <ScreenHeader eyebrow="Know your calories" title="Calories" />
 
       {foodGoal && (
         <Card className="flex-row items-center gap-3 border-primary/40 bg-accent/40 px-4 py-3">
@@ -486,93 +519,120 @@ export function FoodCalories() {
         </Card>
       )}
 
-      <Card className="gap-4 px-4 py-5">
-        <ToggleGroup type="single" variant="outline" spacing={0} value={sex} onValueChange={(v) => v && setSex(v as Sex)} aria-label="Sex" className="w-full">
-          <ToggleGroupItem value="male" className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
-            Male
-          </ToggleGroupItem>
-          <ToggleGroupItem value="female" className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
-            Female
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <div className="grid grid-cols-3 gap-2">
-          <NumberField label="Age" value={age} onValue={setAge} placeholder="25" />
-          <NumberField label="Height (cm)" value={height} onValue={setHeight} placeholder="170" />
-          <NumberField label="Weight (kg)" value={weight} onValue={setWeight} decimal placeholder="70" />
-        </div>
-        <Field className="gap-1">
-          <FieldLabel className="text-xs font-normal text-muted-foreground">How active are you?</FieldLabel>
-          <Select value={activity} onValueChange={(v) => setActivity(v as Activity)}>
-            <SelectTrigger className="h-10 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ACTIVITY.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.label} <span className="text-muted-foreground">· {a.hint}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <p className="text-[11px] text-muted-foreground">Height in feet? 5 ft = 152 cm, 5′6″ = 168 cm, 6 ft = 183 cm.</p>
-      </Card>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        spacing={0}
+        value={how}
+        onValueChange={(v) => v && setHow(v as 'calc' | 'manual')}
+        aria-label="How to set your target"
+        className="w-full"
+      >
+        <ToggleGroupItem value="calc" className="h-11 flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          Calculate for me
+        </ToggleGroupItem>
+        <ToggleGroupItem value="manual" className="h-11 flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          Set it myself
+        </ToggleGroupItem>
+      </ToggleGroup>
 
-      {profile && keep ? (
+      {how === 'calc' ? (
         <>
-          <section className="flex flex-col gap-2">
-            <SectionTitle>Your body burns about</SectionTitle>
-            <Card className="px-4 py-4">
-              <div className="text-3xl font-semibold tracking-tight tabular">
-                {fmtKcal(keep)} <span className="text-base font-normal text-muted-foreground">kcal a day</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Eat this much to stay at the same weight.</p>
-            </Card>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <SectionTitle>Pick your goal</SectionTitle>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {PLANS.map((p) => {
-                const g = goalFor(profile, p.id);
-                const current = foodGoal?.plan === p.id && foodGoal.kcal === g.kcal;
-                return (
-                  <Card key={p.id} className={cn('gap-3 px-4 py-4', current && 'border-primary')}>
-                    <div>
-                      <div className="font-semibold">{p.title}</div>
-                      <div className="text-xs text-muted-foreground">{p.hint}</div>
-                    </div>
-                    <div className="text-2xl font-semibold tabular">
-                      {fmtKcal(g.kcal)} <span className="text-sm font-normal text-muted-foreground">kcal</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground tabular">
-                      Protein {g.protein} g · Carbs {g.carbs} g · Fat {g.fat} g
-                    </div>
-                    <Button variant={current ? 'secondary' : 'default'} disabled={current} onClick={() => use(p.id)}>
-                      {current ? 'Your target ✓' : 'Use this'}
-                    </Button>
-                  </Card>
-                );
-              })}
+          <Card className="gap-4 px-4 py-5">
+            <ToggleGroup type="single" variant="outline" spacing={0} value={sex} onValueChange={(v) => v && setSex(v as Sex)} aria-label="Sex" className="w-full">
+              <ToggleGroupItem value="male" className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
+                Male
+              </ToggleGroupItem>
+              <ToggleGroupItem value="female" className="h-10 flex-1 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground">
+                Female
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <div className="grid grid-cols-3 gap-2">
+              <NumberField label="Age" value={age} onValue={setAge} placeholder="25" />
+              <NumberField label="Height (cm)" value={height} onValue={setHeight} placeholder="170" />
+              <NumberField label="Weight (kg)" value={weight} onValue={setWeight} decimal placeholder="70" />
             </div>
-          </section>
+            <Field className="gap-1">
+              <FieldLabel className="text-xs font-normal text-muted-foreground">How active are you?</FieldLabel>
+              <Select value={activity} onValueChange={(v) => setActivity(v as Activity)}>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTIVITY.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.label} <span className="text-muted-foreground">· {a.hint}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-[11px] text-muted-foreground">Height in feet? 5 ft = 152 cm, 5′6″ = 168 cm, 6 ft = 183 cm.</p>
+          </Card>
+
+          {profile && keep ? (
+            <>
+              <section className="flex flex-col gap-2">
+                <SectionTitle>Your body burns about</SectionTitle>
+                <Card className="px-4 py-4">
+                  <div className="text-3xl font-semibold tracking-tight tabular">
+                    {fmtKcal(keep)} <span className="text-base font-normal text-muted-foreground">kcal a day</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Eat this much to stay at the same weight.</p>
+                </Card>
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <SectionTitle>Pick your goal</SectionTitle>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {PLANS.map((p) => {
+                    const g = goalFor(profile, p.id);
+                    const current = foodGoal?.plan === p.id && foodGoal.kcal === g.kcal;
+                    return (
+                      <Card key={p.id} className={cn('gap-3 px-4 py-4', current && 'border-primary')}>
+                        <div>
+                          <div className="font-semibold">{p.title}</div>
+                          <div className="text-xs text-muted-foreground">{p.hint}</div>
+                        </div>
+                        <div className="text-2xl font-semibold tabular">
+                          {fmtKcal(g.kcal)} <span className="text-sm font-normal text-muted-foreground">kcal</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground tabular">
+                          Protein {g.protein} g · Carbs {g.carbs} g · Fat {g.fat} g
+                        </div>
+                        <Button variant={current ? 'secondary' : 'default'} disabled={current} onClick={() => use(p.id)}>
+                          {current ? 'Your target ✓' : 'Use this'}
+                        </Button>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
         </>
       ) : (
-        <p className="text-center text-sm text-muted-foreground">Fill in age, height and weight to see your calories.</p>
+          <p className="text-center text-sm text-muted-foreground">Fill in age, height and weight to see your calories.</p>
+        )}
+        {foodGoal && (
+          <Button variant="link" className="-mt-2 h-auto self-center p-0 text-xs" onClick={() => setHow('manual')}>
+            Want a different protein / carbs / fat split? Set it yourself →
+          </Button>
+        )}
+          </>
+        ) : (
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Your daily calories and macros</SectionTitle>
+          <p className="-mt-1 text-xs text-muted-foreground">Type your calories, then pick how much comes from protein, carbs and fat. Grams are worked out for you.</p>
+          {/* Starts from the current target; resets when a goal above is picked. */}
+          <TargetEditor
+            key={foodGoal ? `${foodGoal.kcal}-${foodGoal.protein}-${foodGoal.carbs}-${foodGoal.fat}` : 'none'}
+            start={foodGoal}
+            onSave={(kcal, split) => {
+              actions.setFoodGoal({ plan: 'custom', kcal, ...gramsFromSplit(kcal, split), profile: profile ?? foodGoal?.profile });
+              toast.success(`Daily target set: ${fmtKcal(kcal)} kcal`);
+            }}
+          />
+        </section>
       )}
-
-      <section className="flex flex-col gap-2">
-        <SectionTitle>{profile ? 'Or set your own target' : 'Set your own target'}</SectionTitle>
-        {/* Starts from the current target; resets when a goal above is picked. */}
-        <TargetEditor
-          key={foodGoal ? `${foodGoal.kcal}-${foodGoal.protein}-${foodGoal.carbs}-${foodGoal.fat}` : 'none'}
-          start={foodGoal}
-          onSave={(kcal, split) => {
-            actions.setFoodGoal({ plan: 'custom', kcal, ...gramsFromSplit(kcal, split), profile: profile ?? foodGoal?.profile });
-            toast.success(`Daily target set: ${fmtKcal(kcal)} kcal`);
-          }}
-        />
-      </section>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         Worked out with the Mifflin–St Jeor formula. It’s a starting point: if your weight doesn’t move the way you want in 2–3 weeks, change

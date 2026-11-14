@@ -2,8 +2,9 @@ import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseServer } from '../supabase/server';
 import { isSupabaseConfigured, SUPABASE_URL } from '../supabase/env';
-import { believable, normalizeText, r1, type Food, type Serving } from './core';
-import type { FoodSource } from '../types';
+import { believable, cleanMicro, normalizeText, r1, type Food, type Serving } from './core';
+import { barcodeVariants, fetchOffProduct, foodFromOff, type BarcodeResult } from './off';
+import type { FoodSource, Micro, NutrientKey } from '../types';
 
 /**
  * Server side of food search (Route Handlers only, keys never reach the browser):
@@ -52,9 +53,10 @@ interface CatalogRow {
   fat: number;
   servings: Serving[] | null;
   liquid: boolean;
+  micro?: Micro | null;
 }
 
-const COLS = 'id,source,name,brand,barcode,kcal,protein,carbs,fat,servings,liquid';
+const COLS = 'id,source,name,brand,barcode,kcal,protein,carbs,fat,servings,liquid,micro';
 
 export function foodFromRow(r: CatalogRow): Food {
   return {
@@ -65,6 +67,7 @@ export function foodFromRow(r: CatalogRow): Food {
     per100: { kcal: Math.round(Number(r.kcal)), protein: Number(r.protein), carbs: Number(r.carbs), fat: Number(r.fat) },
     servings: Array.isArray(r.servings) ? r.servings.filter((s) => s && s.label && s.grams > 0).slice(0, 5) : [],
     liquid: r.liquid,
+    micro: cleanMicro(r.micro),
   };
 }
 
@@ -81,6 +84,7 @@ function rowFromFood(f: Food, barcode?: string): CatalogRow {
     fat: r1(f.per100.fat),
     servings: f.servings,
     liquid: !!f.liquid,
+    micro: f.micro ?? null,
   };
 }
 
@@ -127,12 +131,31 @@ function fromUsda(f: UsdaFood): Food | null {
   const kcal = n(1008, 'KCAL') ?? n(2047, 'KCAL') ?? n(2048, 'KCAL') ?? 4 * protein + 4 * carbs + 9 * fat;
   const per100 = { kcal: Math.round(kcal), protein: r1(protein), carbs: r1(carbs), fat: r1(fat) };
   if (!believable(per100)) return null;
+  const micro: Partial<Record<NutrientKey, number | undefined>> = {};
+  for (const [key, id, unit] of USDA_MICRO) micro[key] = n(id, unit);
   const servings = (f.foodMeasures ?? [])
     .filter((m) => m.gramWeight > 0 && m.gramWeight <= 2000 && !/quantity not specified/i.test(m.disseminationText))
     .slice(0, 3)
     .map((m) => ({ label: m.disseminationText.replace(/^1\s+/, '').slice(0, 40), grams: r1(m.gramWeight) }));
-  return { id: `usda:${f.fdcId}`, name: tidyName(f.description), kind: 'usda', per100, servings };
+  return { id: `usda:${f.fdcId}`, name: tidyName(f.description), kind: 'usda', per100, servings, micro: cleanMicro(micro) };
 }
+
+/** USDA nutrient numbers for the other nutrients, with the unit we store. */
+const USDA_MICRO: [NutrientKey, number, string][] = [
+  ['fiber', 1079, 'G'],
+  ['sugar', 2000, 'G'],
+  ['satFat', 1258, 'G'],
+  ['cholesterol', 1253, 'MG'],
+  ['sodium', 1093, 'MG'],
+  ['potassium', 1092, 'MG'],
+  ['calcium', 1087, 'MG'],
+  ['iron', 1089, 'MG'],
+  ['magnesium', 1090, 'MG'],
+  ['zinc', 1095, 'MG'],
+  ['vitaminA', 1106, 'UG'],
+  ['vitaminC', 1162, 'MG'],
+  ['folate', 1177, 'UG'],
+];
 
 async function searchUsda(q: string): Promise<Food[]> {
   if (!USDA_KEY) return [];
@@ -221,61 +244,20 @@ export async function searchServer(query: string): Promise<{ foods: Food[]; usda
 /* barcode                                                              */
 /* ------------------------------------------------------------------ */
 
-interface OffProduct {
-  product_name?: string;
-  product_name_en?: string;
-  brands?: string;
-  quantity?: string;
-  product_quantity?: number | string;
-  serving_size?: string;
-  serving_quantity?: number | string;
-  nutriments?: Record<string, number | string | undefined>;
-}
-
-export type BarcodeResult =
-  | { found: true; food: Food }
-  /** Not known anywhere (or the label data looked wrong): the user can add it from the pack. */
-  | { found: false; name?: string; brand?: string };
 
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
+  const codes = barcodeVariants(code);
   const db = await readDb();
-  const { data: known } = db ? await db.from('food_catalog').select(COLS).eq('barcode', code).maybeSingle() : { data: null };
-  if (known) return { found: true, food: foodFromRow(known as CatalogRow) };
-
-  const res = await fetch(
-    `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,product_quantity,serving_size,serving_quantity,nutriments`,
-    { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(8000), cache: 'no-store' },
-  );
-  if (res.status === 404) return { found: false };
-  if (!res.ok) throw new Error(`Open Food Facts ${res.status}`);
-  const data = (await res.json()) as { status?: number; product?: OffProduct };
-  const p = data.product;
-  if (!data.status || !p) return { found: false };
-
-  const name = (p.product_name_en || p.product_name || '').trim();
-  const brand = p.brands?.split(',')[0]?.trim() || undefined;
-  const num = (k: string) => {
-    const v = Number(p.nutriments?.[k]);
-    return Number.isFinite(v) ? v : null;
-  };
-  const kj = num('energy-kj_100g') ?? num('energy_100g');
-  const kcal = num('energy-kcal_100g') ?? (kj !== null ? kj / 4.184 : null);
-  const protein = num('proteins_100g');
-  const carbs = num('carbohydrates_100g');
-  const fat = num('fat_100g');
-  if (!name || kcal === null || protein === null || carbs === null || fat === null) return { found: false, name: name || undefined, brand };
-  const per100 = { kcal: Math.round(kcal), protein: r1(protein), carbs: r1(carbs), fat: r1(fat) };
-  if (!believable(per100)) return { found: false, name, brand };
-
-  const liquid = /\b\d+(\.\d+)?\s*(ml|l|litre|liter)\b/i.test(p.quantity ?? '');
-  const servings: Serving[] = [];
-  const serving = Number(p.serving_quantity);
-  // "1 serving · 30 g" (a 100 g "serving" is just the label's per-100 g column: grams covers it).
-  if (serving > 0 && serving <= 2000 && serving !== 100) servings.push({ label: 'serving', grams: r1(serving) });
-  const pack = Number(p.product_quantity);
-  if (pack > 0 && pack <= 2000 && pack !== serving) servings.push({ label: 'whole pack', grams: r1(pack) });
-
-  const food: Food = { id: `off:${code}`, name: name.slice(0, 120), brand, kind: 'off', per100, servings, liquid };
-  await saveFoods([food], code);
-  return { found: true, food };
+  if (db) {
+    const { data: known } = await db.from('food_catalog').select(COLS).in('barcode', codes).limit(1).maybeSingle();
+    if (known) return { found: true, food: foodFromRow(known as CatalogRow) };
+  }
+  for (const c of codes) {
+    const product = await fetchOffProduct(c, { 'User-Agent': UA });
+    if (!product) continue;
+    const result = foodFromOff(c, product);
+    if (result.found) await saveFoods([result.food], c);
+    return result;
+  }
+  return { found: false };
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { NUTRIENTS, sumMicro } from './food/core';
 import { formatDuration, formatKm, formatPace, paceSecPerKm, weatherLabel } from './run/core';
 import { MEAL_LABELS, MEALS, type FoodGoal, type FoodLog, type RunEntry, type Workout } from './types';
 import { formatDate, formatVolume, formatW, workoutVolume } from './utils';
@@ -363,6 +364,41 @@ export async function buildFoodPdf(date: string, logs: FoodLog[], goal: FoodGoal
     doc.setFontSize(12);
     doc.setTextColor(...MUTED);
     doc.text('Nothing logged on this day.', PAGE_W / 2, y, { align: 'center' });
+  }
+
+  // Other nutrients (two columns), for the foods that have them.
+  const { total: micro } = sumMicro(logs);
+  const rows = NUTRIENTS.filter((n) => micro[n.key] !== undefined);
+  if (rows.length) {
+    const lines = Math.ceil(rows.length / 2);
+    if (y + 30 + lines * 18 > BOTTOM) {
+      doc.addPage();
+      y = M;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...INK);
+    doc.text('Other nutrients', M, y);
+    y += 20;
+    const colW = (PAGE_W - 2 * M) / 2;
+    rows.forEach((n, i) => {
+      const x = M + (i % 2) * colW;
+      const yy = y + Math.floor(i / 2) * 18;
+      const v = micro[n.key]!;
+      const value = `${v >= 10 || n.unit === 'µg' ? r(v).toLocaleString('en-IN') : Math.round(v * 10) / 10} ${n.unit}${n.dv ? `  (${r((v / n.dv) * 100)}% DV)` : ''}`;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(...MUTED);
+      doc.text(n.label, x, yy);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...INK);
+      doc.text(pdfText(value), x + colW - 12, yy, { align: 'right' });
+    });
+    y += lines * 18 + 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text('From the foods that have this data. % DV: US FDA Daily Value, 2,000 kcal diet.', M, y);
   }
 
   footer(doc);

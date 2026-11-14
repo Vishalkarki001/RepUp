@@ -4,7 +4,7 @@
  * local search and the calorie calculator (Mifflin–St Jeor).
  * No React, no browser APIs.
  */
-import type { Activity, FoodGoal, FoodLog, FoodPlan, FoodProfile, FoodSource, Macros, Sex } from '../types';
+import { NUTRIENT_KEYS, type Activity, type FoodGoal, type FoodLog, type FoodPlan, type FoodProfile, type FoodSource, type Macros, type Micro, type NutrientKey, type Sex } from '../types';
 
 /** Where the numbers come from (shown as a small badge). */
 export type FoodKind = FoodSource;
@@ -28,6 +28,69 @@ export interface Food {
   oil?: boolean;
   /** Drink: amounts in ml. */
   liquid?: boolean;
+  /** Other nutrients per 100 g (only those the source measured). */
+  micro?: Micro;
+}
+
+/**
+ * The other nutrients shown in the app, with US FDA Daily Values (the % DV on
+ * food labels, for a 2,000 kcal diet). Sugar has no daily value (it's total sugar).
+ */
+export const NUTRIENTS: { key: NutrientKey; label: string; unit: 'g' | 'mg' | 'µg'; dv: number | null }[] = [
+  { key: 'fiber', label: 'Fibre', unit: 'g', dv: 28 },
+  { key: 'sugar', label: 'Sugar', unit: 'g', dv: null },
+  { key: 'satFat', label: 'Saturated fat', unit: 'g', dv: 20 },
+  { key: 'cholesterol', label: 'Cholesterol', unit: 'mg', dv: 300 },
+  { key: 'sodium', label: 'Sodium', unit: 'mg', dv: 2300 },
+  { key: 'potassium', label: 'Potassium', unit: 'mg', dv: 4700 },
+  { key: 'calcium', label: 'Calcium', unit: 'mg', dv: 1300 },
+  { key: 'iron', label: 'Iron', unit: 'mg', dv: 18 },
+  { key: 'magnesium', label: 'Magnesium', unit: 'mg', dv: 420 },
+  { key: 'zinc', label: 'Zinc', unit: 'mg', dv: 11 },
+  { key: 'vitaminA', label: 'Vitamin A', unit: 'µg', dv: 900 },
+  { key: 'vitaminC', label: 'Vitamin C', unit: 'mg', dv: 90 },
+  { key: 'folate', label: 'Folate', unit: 'µg', dv: 400 },
+];
+
+/** Upper limits that keep a mistyped value out (per 100 g). */
+const MICRO_MAX: Record<NutrientKey, number> = {
+  fiber: 100, sugar: 100, satFat: 100, cholesterol: 3000, sodium: 40000, potassium: 20000, calcium: 10000,
+  iron: 500, magnesium: 2000, zinc: 200, vitaminA: 50000, vitaminC: 5000, folate: 10000,
+};
+
+/** Keeps only known, believable, non-negative numbers (rounded). Undefined when nothing is left. */
+export function cleanMicro(m: unknown): Micro | undefined {
+  if (!m || typeof m !== 'object') return undefined;
+  const out: Micro = {};
+  for (const k of NUTRIENT_KEYS) {
+    const v = Number((m as Record<string, unknown>)[k]);
+    if ((m as Record<string, unknown>)[k] === null || (m as Record<string, unknown>)[k] === undefined || !Number.isFinite(v) || v < 0 || v > MICRO_MAX[k]) continue;
+    out[k] = Math.round(v * 100) / 100;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Other nutrients for `grams` of a food. */
+export function microFor(food: Pick<Food, 'micro'>, grams: number): Micro | undefined {
+  if (!food.micro) return undefined;
+  const f = grams / 100;
+  const out: Micro = {};
+  for (const [k, v] of Object.entries(food.micro) as [NutrientKey, number][]) out[k] = Math.round(v * f * 100) / 100;
+  return out;
+}
+
+/** A day's other nutrients: totals, and how many of the foods had each one. */
+export function sumMicro(logs: Pick<FoodLog, 'micro'>[]): { total: Micro; counted: Partial<Record<NutrientKey, number>> } {
+  const total: Micro = {};
+  const counted: Partial<Record<NutrientKey, number>> = {};
+  for (const l of logs) {
+    if (!l.micro) continue;
+    for (const [k, v] of Object.entries(l.micro) as [NutrientKey, number][]) {
+      total[k] = Math.round(((total[k] ?? 0) + v) * 100) / 100;
+      counted[k] = (counted[k] ?? 0) + 1;
+    }
+  }
+  return { total, counted };
 }
 
 export type OilLevel = 'less' | 'normal' | 'extra';
@@ -183,6 +246,7 @@ export function foodFromLog(l: FoodLog): Food {
     per100: { kcal: Math.round(l.kcal * f), protein: r1(l.protein * f), carbs: r1(l.carbs * f), fat: r1(l.fat * f) },
     servings: byWeight || l.amount <= 0 ? [] : [{ label: l.unit, grams: r1(l.grams / l.amount) }],
     liquid: l.unit === 'ml',
+    micro: l.micro && l.grams > 0 ? microFor({ micro: l.micro }, 100 * (100 / l.grams)) : undefined,
   };
 }
 

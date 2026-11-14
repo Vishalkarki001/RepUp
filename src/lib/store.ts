@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { DEFAULT_EXERCISES, DEFAULT_PLANS } from './data/defaults';
+import { cleanMicro } from './food/core';
 import type {
   AppState,
   BodyWeightEntry,
@@ -139,7 +140,10 @@ function normalize(raw: unknown): AppState | null {
       ? r.bodyWeights.filter((b) => isObj(b) && typeof b.kg === 'number' && typeof b.date === 'string')
       : [],
     runs: Array.isArray(r.runs) ? r.runs.filter(validRun).sort((a, b) => b.startedAt - a.startedAt) : [],
-    foodLogs: Array.isArray(r.foodLogs) ? r.foodLogs.filter(validFoodLog).sort(byFoodLog) : [],
+    foodLogs: Array.isArray(r.foodLogs) ? r.foodLogs
+          .filter(validFoodLog)
+          .map(({ micro, ...l }) => (cleanMicro(micro) ? { ...l, micro: cleanMicro(micro) } : l))
+          .sort(byFoodLog) : [],
     foodGoal: validGoal(r.foodGoal) ? r.foodGoal : null,
     water: isObj(r.water)
       ? Object.fromEntries(
