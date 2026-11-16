@@ -143,9 +143,10 @@ export interface Macros {
 
 /**
  * Where a food's numbers come from: RepUp's own list, USDA, a pack label (Open Food Facts),
- * a food a user added for everyone, or calories typed in once (quick add).
+ * a pack found online by its barcode (web), a food a user added for everyone, or calories
+ * typed in once (quick add).
  */
-export type FoodSource = 'local' | 'usda' | 'off' | 'user' | 'quick';
+export type FoodSource = 'local' | 'usda' | 'off' | 'web' | 'user' | 'quick';
 
 /**
  * Other nutrients (fibre, minerals, vitamins). Every food has only the ones its

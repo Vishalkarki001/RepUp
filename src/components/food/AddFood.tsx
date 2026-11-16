@@ -30,7 +30,7 @@ import { MEAL_LABELS, MEALS, type FoodLog, type Meal } from '@/lib/types';
 import { cn, uid } from '@/lib/utils';
 import { Modal } from '../Modal';
 import { NumberField } from '../NumberField';
-import { barcodeVariants, fetchOffProduct, foodFromOff, type BarcodeResult } from '@/lib/food/off';
+import { barcodeVariants, fetchOffProduct, foodFromOff, validGtin, type BarcodeResult } from '@/lib/food/off';
 import { shareFood } from '@/lib/food/share';
 import { BarcodeScanner } from './BarcodeScanner';
 import { amountLabel, fmtKcal, fmtNutrient, logMacros, SourceBadge, useLocalFoods } from './FoodParts';
@@ -39,7 +39,7 @@ type Step =
   | { kind: 'search' }
   | { kind: 'amount'; food: Food; amount?: number; unit?: string }
   | { kind: 'quick' }
-  | { kind: 'label'; barcode?: string; name?: string; brand?: string }
+  | { kind: 'label'; barcode?: string; name?: string; brand?: string; mistyped?: boolean }
   | { kind: 'scan' };
 
 /**
@@ -173,6 +173,7 @@ export function AddFood({ date, meal: startMeal, edit, onClose }: { date: string
           barcode={step.barcode}
           name={step.name}
           brand={step.brand}
+          mistyped={step.mistyped}
           onSaved={(food) => setStep({ kind: 'amount', food })}
         />
       )}
@@ -663,7 +664,19 @@ function QuickAdd({
 
 
 /** A food typed from its pack label. Shared with everyone (marked "User added") once the numbers add up. */
-function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, onSaved }: { barcode?: string; name?: string; brand?: string; onSaved: (f: Food) => void }) {
+function AddFromLabel({
+  barcode: scanned,
+  name: startName,
+  brand: startBrand,
+  mistyped,
+  onSaved,
+}: {
+  barcode?: string;
+  name?: string;
+  brand?: string;
+  mistyped?: boolean;
+  onSaved: (f: Food) => void;
+}) {
   const [name, setName] = useState(startName ?? '');
   const [brand, setBrand] = useState(startBrand ?? '');
   const [barcode, setBarcode] = useState(scanned ?? '');
@@ -702,8 +715,17 @@ function AddFromLabel({ barcode: scanned, name: startName, brand: startBrand, on
     <>
       {scanned ? (
         <p className="rounded-lg bg-accent/60 px-3 py-2 text-sm text-accent-foreground">
-          Barcode <b className="tabular">{scanned}</b> isn’t in the food list yet. Copy the numbers from the pack once, and it will scan
-          straight away for you and everyone after that.
+          {mistyped ? (
+            <>
+              Barcode <b className="tabular">{scanned}</b> doesn’t look right: check the numbers under the barcode and try again. Or copy the
+              food from its label here.
+            </>
+          ) : (
+            <>
+              Barcode <b className="tabular">{scanned}</b> isn’t in the food list yet. Copy the numbers from the pack once, and it will scan
+              straight away for you and everyone after that.
+            </>
+          )}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">Copy the numbers from the nutrition table on the pack. Everyone using RepUp will be able to find it.</p>
@@ -782,6 +804,18 @@ async function lookupOnServer(code: string): Promise<BarcodeResult | 'signed-out
   }
 }
 
+/** Last try (the person isn't told): RepUp's server searches the internet for the barcode (10–30 seconds). Null when it couldn't answer. */
+async function lookupOnWeb(code: string): Promise<BarcodeResult | null> {
+  try {
+    const res = await fetch(`/api/food/barcode/web?barcode=${code}`, { method: 'POST', headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(70_000) });
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return null;
+    const data = (await res.json()) as BarcodeResult | { error: string };
+    return 'found' in data ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Backup: the same lookup straight from the phone (Open Food Facts allows it). */
 async function lookupOnOff(code: string): Promise<BarcodeResult> {
   for (const c of barcodeVariants(code)) {
@@ -791,14 +825,26 @@ async function lookupOnOff(code: string): Promise<BarcodeResult> {
   return { found: false };
 }
 
-function ScanStep({ onFound, onMissing }: { onFound: (f: Food) => void; onMissing: (s: { barcode: string; name?: string; brand?: string }) => void }) {
+/** Why a scanned barcode goes to the label form. */
+interface Missing {
+  barcode: string;
+  name?: string;
+  brand?: string;
+  /** The check digit is wrong: probably typed wrong. */
+  mistyped?: boolean;
+}
+
+function ScanStep({ onFound, onMissing }: { onFound: (f: Food) => void; onMissing: (s: Missing) => void }) {
   const [busy, setBusy] = useState(false);
+  const [busyText, setBusyText] = useState<string>();
   const [key, setKey] = useState(0);
   const busyRef = useRef(false);
   const look = async (code: string) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    // A new pack can take a while: say so, so it doesn't look stuck.
+    const slow = setTimeout(() => setBusyText('Still looking… almost there'), 6000);
     try {
       if (!navigator.onLine) throw new Error('offline');
       let result = await lookupOnServer(code);
@@ -811,19 +857,27 @@ function ScanStep({ onFound, onMissing }: { onFound: (f: Food) => void; onMissin
         // Found by the phone itself: add it to the shared list too, so it's there for everyone next time.
         if (result.found) void shareFood({ ...result.food, barcode: result.food.id.replace(/^off:/, '') });
       }
+      // Nobody has it yet: quietly look for it on the internet too (found → saved for everyone).
+      // The person just sees "Looking it up…".
+      if (!result.found && validGtin(code)) {
+        const online = await lookupOnWeb(code);
+        if (online) result = online.found ? online : { found: false, name: result.name ?? online.name, brand: result.brand ?? online.brand };
+      }
       if (result.found) onFound(result.food);
       else {
-        toast('Not in the food list yet. Add it once from the label: after that it scans for everyone.');
-        onMissing({ barcode: code, name: result.name, brand: result.brand });
+        // The label form says why (no toast: it would cover the form).
+        onMissing({ barcode: code, name: result.name, brand: result.brand, mistyped: !validGtin(code) });
       }
     } catch {
       toast.error(navigator.onLine ? 'Couldn’t look up that barcode. Check your internet and try again, or search by name.' : 'You’re offline. Search by name instead.');
       setKey((k) => k + 1); // restart the camera
     } finally {
+      clearTimeout(slow);
       busyRef.current = false;
       setBusy(false);
+      setBusyText(undefined);
     }
   };
-  return <BarcodeScanner key={key} busy={busy} onCode={(c) => void look(c)} />;
+  return <BarcodeScanner key={key} busy={busy} busyText={busyText} onCode={(c) => void look(c)} />;
 }
 

@@ -141,7 +141,7 @@ export interface AdminSharedExercise {
 
 export interface AdminFood {
   id: string;
-  source: 'usda' | 'off' | 'user';
+  source: 'usda' | 'off' | 'web' | 'user';
   name: string;
   brand: string | null;
   barcode: string | null;
@@ -157,6 +157,8 @@ export interface AdminFood {
 export interface AdminFoodStats {
   usda: number;
   off: number;
+  /** Missing before the barcode_web migration. */
+  web?: number;
   user: number;
   logs: number;
   loggers_7d: number;

@@ -4,14 +4,17 @@ import { adminDb, signedInUser } from '../supabase/admin';
 import { createSupabaseServer } from '../supabase/server';
 import { isSupabaseConfigured } from '../supabase/env';
 import { believable, cleanMicro, normalizeText, r1, type Food, type Serving } from './core';
-import { barcodeVariants, fetchOffProduct, foodFromOff, type BarcodeResult } from './off';
+import { barcodeVariants, fetchOffProduct, foodFromOff, validGtin, type BarcodeResult } from './off';
+import { searchBarcodeOnWeb, webLookupReady } from './web';
+import { foodFromWeb } from './web-product';
 import type { FoodSource, Micro, NutrientKey } from '../types';
 
 /**
  * Server side of food search (Route Handlers only, keys never reach the browser):
  *  - the shared food list in the database (food_catalog);
  *  - USDA FoodData Central for anything not there yet (USDA_API_KEY);
- *  - Open Food Facts for barcodes (pack labels).
+ *  - Open Food Facts for barcodes (pack labels);
+ *  - the internet (shop / brand pages, read by AI) for barcodes nobody has yet.
  * Foods found at USDA / Open Food Facts are saved to the shared list (needs
  * SUPABASE_SECRET_KEY), so the next search is instant for everyone.
  * Only believable rows are kept (kcal must match protein, carbs and fat).
@@ -252,4 +255,34 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
     return result;
   }
   return { found: false };
+}
+
+/** A barcode the web search couldn't find isn't searched again for this long. */
+const MISS_DAYS = 14;
+
+/**
+ * Last stop for a barcode (after the shared list and Open Food Facts): search
+ * the internet for it. Found → saved to the shared list, so it's instant for
+ * everyone after. Not found → remembered for a while (each search costs money).
+ */
+export async function lookupBarcodeOnWeb(code: string): Promise<BarcodeResult> {
+  if (!validGtin(code) || !webLookupReady()) return { found: false };
+  const codes = barcodeVariants(code);
+  const db = adminDb();
+  if (db) {
+    const [{ data: known }, { data: miss }] = await Promise.all([
+      db.from('food_catalog').select(COLS).in('barcode', codes).limit(1).maybeSingle(),
+      db.from('barcode_misses').select('name,checked_at').eq('barcode', code).maybeSingle<{ name: string | null; checked_at: string }>(),
+    ]);
+    if (known) return { found: true, food: foodFromRow(known as CatalogRow) };
+    if (miss && Date.now() - Date.parse(miss.checked_at) < MISS_DAYS * 86_400_000) return { found: false, name: miss.name ?? undefined };
+  }
+  const product = await searchBarcodeOnWeb(code);
+  const result: BarcodeResult = product ? foodFromWeb(code, product) : { found: false };
+  if (result.found) await saveFoods([result.food], code);
+  else if (db) {
+    const { error } = await db.from('barcode_misses').upsert({ barcode: code, name: result.name?.slice(0, 120) ?? null, checked_at: new Date().toISOString() });
+    if (error) console.error('barcode_misses save failed:', error.message);
+  }
+  return result;
 }

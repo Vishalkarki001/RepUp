@@ -27,7 +27,9 @@ export function SourceBadge({ food, className }: { food: Pick<Food, 'kind' | 'ap
       ? ['✓ USDA', 'Lab data from USDA FoodData Central']
       : food.kind === 'off'
         ? ['✓ Label', 'From the pack label (Open Food Facts)']
-        : food.kind === 'user'
+        : food.kind === 'web'
+          ? ['✓ Label', 'From the pack label']
+          : food.kind === 'user'
           ? ['User added', 'Added from a pack label by a RepUp user']
           : food.kind === 'quick'
             ? ['Yours', 'Typed in by you']

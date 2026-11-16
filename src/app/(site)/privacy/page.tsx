@@ -96,9 +96,10 @@ export default function PrivacyPage() {
             <b>Service providers</b> that host the app for us: Supabase (database, login and photo storage, servers in Mumbai,
             India), Vercel (website hosting), Google (sign-in with Google, and the Gmail account that sends our emails), Open-Meteo (the
             weather when a run starts; it receives your position rounded to about 1 km), OpenStreetMap (map images of your route), USDA
-            FoodData Central (receives the food words you search for) and Open Food Facts (receives the barcode numbers you scan). Food
-            searches and barcodes go through RepUp’s server, so those two don’t see who you are (only if our server can’t reach Open
-            Food Facts does your phone ask it directly). They process data only to provide their service to us.
+            FoodData Central (receives the food words you search for), Open Food Facts (receives the barcode numbers you scan) and
+            Anthropic (when a barcode isn’t known anywhere yet, receives only that barcode number to search the internet for the
+            product). Food searches and barcodes go through RepUp’s server, so these three don’t see who you are (only if our server
+            can’t reach Open Food Facts does your phone ask it directly). They process data only to provide their service to us.
           </li>
         </ul>
         <p className="mt-3">We never sell or rent your data and never share it with advertisers.</p>

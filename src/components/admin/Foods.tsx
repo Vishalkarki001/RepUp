@@ -15,11 +15,11 @@ import { Stat, StatGrid } from '../common';
 import { confirmDialog } from '../Confirm';
 import { adminApi, shortDate, type AdminFood, type AdminFoodStats } from './api';
 
-const SOURCE_LABEL: Record<AdminFood['source'], string> = { usda: 'USDA', off: 'Label', user: 'User added' };
+const SOURCE_LABEL: Record<AdminFood['source'], string> = { usda: 'USDA', off: 'Label', web: 'Found online', user: 'User added' };
 
 /**
  * The shared food list (food_catalog): foods found at USDA, packs scanned by
- * barcode (Open Food Facts) and foods users added from a label. An admin can
+ * barcode (Open Food Facts, or found online by AI) and foods users added from a label. An admin can
  * remove a wrong one; people who already logged it keep their own entry.
  * RepUp's ~1,000 built-in foods live in the app itself, not here.
  */
@@ -68,8 +68,8 @@ export function AdminFoods() {
   return (
     <div className="flex flex-col gap-4">
       <StatGrid cols={4}>
-        <Stat value={stats ? stats.usda + stats.off + stats.user : '–'} label="shared foods (plus ~1,000 built in)" />
-        <Stat value={stats ? `${stats.off} · ${stats.user}` : '–'} label="from labels · added by users" />
+        <Stat value={stats ? stats.usda + stats.off + (stats.web ?? 0) + stats.user : '–'} label="shared foods (plus ~1,000 built in)" />
+        <Stat value={stats ? `${stats.off + (stats.web ?? 0)} · ${stats.user}` : '–'} label="from labels · added by users" />
         <Stat value={stats ? stats.logs.toLocaleString('en-IN') : '–'} label="foods logged" />
         <Stat value={stats ? `${stats.loggers_7d}` : '–'} label={`people logging food (7 days) · ${stats?.with_goal ?? 0} with a target`} />
       </StatGrid>
@@ -90,7 +90,7 @@ export function AdminFoods() {
           onValueChange={(v) => v && setSource(v as typeof source)}
           aria-label="Source"
         >
-          {(['all', 'usda', 'off', 'user'] as const).map((s) => (
+          {(['all', 'usda', 'off', 'web', 'user'] as const).map((s) => (
             <ToggleGroupItem key={s} value={s} className="px-3 text-xs">
               {s === 'all' ? 'All' : SOURCE_LABEL[s]}
             </ToggleGroupItem>

@@ -152,7 +152,7 @@ function foodLogFromRow(r: Row): FoodLog {
     protein: Number(r.protein),
     carbs: Number(r.carbs),
     fat: Number(r.fat),
-    source: (['usda', 'off', 'user', 'quick'] as const).find((x) => x === r.source) ?? 'local',
+    source: (['usda', 'off', 'web', 'user', 'quick'] as const).find((x) => x === r.source) ?? 'local',
     loggedAt: Date.parse(String(r.logged_at)),
     ...(cleanMicro(r.micro) ? { micro: cleanMicro(r.micro) } : {}),
   };

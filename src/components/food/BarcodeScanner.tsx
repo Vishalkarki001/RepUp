@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Flashlight, FlashlightOff, Search } from 'lucide-react';
+import { Camera, CameraOff, Flashlight, FlashlightOff, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +54,7 @@ type Caps = MediaTrackCapabilities & { focusMode?: string[]; zoom?: { min: numbe
  * that uses the phone's own camera app (best focus, works everywhere).
  * The numbers under the barcode can be typed too.
  */
-export function BarcodeScanner({ onCode, busy }: { onCode: (code: string) => void; busy?: boolean }) {
+export function BarcodeScanner({ onCode, busy, busyText }: { onCode: (code: string) => void; busy?: boolean; busyText?: string }) {
   const video = useRef<HTMLVideoElement>(null);
   const photo = useRef<HTMLInputElement>(null);
   const trackRef = useRef<MediaStreamTrack | null>(null);
@@ -194,7 +194,7 @@ export function BarcodeScanner({ onCode, busy }: { onCode: (code: string) => voi
             )}
           </>
         )}
-        {status !== 'scanning' && (
+        {status !== 'scanning' && !busy && (
           <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/85">
             {status === 'starting' ? (
               'Starting camera…'
@@ -208,9 +208,17 @@ export function BarcodeScanner({ onCode, busy }: { onCode: (code: string) => voi
             )}
           </div>
         )}
+        {busy && (
+          <div className="absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-white" role="status" aria-live="polite">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="size-7 animate-spin" />
+              <p className="text-sm font-medium">{busyText ?? 'Looking it up…'}</p>
+            </div>
+          </div>
+        )}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        {busy ? 'Looking it up…' : 'Put the barcode inside the box, about a hand’s length (15–20 cm) away, in good light. Hold still.'}
+        {busy ? 'Hold on, this takes a few seconds.' : 'Put the barcode inside the box, about a hand’s length (15–20 cm) away, in good light. Hold still.'}
       </p>
 
       <input ref={photo} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => void readPhoto(e.target.files?.[0])} />
