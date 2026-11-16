@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, Pencil, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { searchSharedExercises, shareExercise, type SharedExercise } from '@/lib/exercises/shared';
+import { search, searchText } from '@/lib/search';
 import { actions, useAppState } from '@/lib/store';
-import { MUSCLES, type Muscle } from '@/lib/types';
+import { MUSCLES, type Exercise, type Muscle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ExerciseEditor } from './ExerciseEditor';
 import { Modal } from './Modal';
@@ -16,6 +18,9 @@ interface Props {
   onClose: () => void;
   onPick: (exerciseIds: string[]) => void;
 }
+
+/** An exercise in a list: one of yours, or one someone else created (found by searching). */
+export type Listed = Pick<Exercise, 'id' | 'name' | 'muscle' | 'equipment'> & { custom?: boolean; fromShared?: boolean };
 
 /** Pick existing exercises (multi-select, keeps tap order) or type a new name to create one. */
 export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Props) {
@@ -28,23 +33,32 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
   const editingEx = editingId ? exercises.find((x) => x.id === editingId) : undefined;
 
   const q = query.trim();
-  const list = useMemo(() => {
-    const lq = q.toLowerCase();
-    return exercises
-      .filter((e) => (muscle === 'All' || e.muscle === muscle) && (!lq || e.name.toLowerCase().includes(lq)))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [exercises, q, muscle]);
+  // Forgiving search (typos, part of a word, "pushup", "db press"); A–Z when nothing is typed.
+  // Exercises other people created show up in the same list, like any other exercise.
+  const shared = useSharedExercises(q, exercises, muscle);
+  const list = useMemo<Listed[]>(() => {
+    const inMuscle: Listed[] = exercises.filter((e) => muscle === 'All' || e.muscle === muscle);
+    if (!q) return [...inMuscle].sort((a, b) => a.name.localeCompare(b.name));
+    const others: Listed[] = shared.items.map((x) => ({ ...x, fromShared: true }));
+    return search([...inMuscle, ...others], q, (e) => searchText(e.name));
+  }, [exercises, q, muscle, shared.items]);
   const exact = exercises.some((e) => e.name.toLowerCase() === q.toLowerCase());
 
-  const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const toggle = (e: Listed) => {
+    // One created by someone else: it becomes one of yours the moment you pick it.
+    const id = e.fromShared ? actions.addSharedExercise(e).id : e.id;
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  };
 
   const createNew = () => {
     if (!q || exact) return;
     const e = actions.addExercise({ name: q, muscle: muscle === 'All' ? newMuscle : muscle, equipment: 'Other' });
+    void shareExercise(e); // so the next person finds it
     setSelected((s) => [...s, e.id]);
     setQuery('');
     toast.success(`“${e.name}” added to your exercises`);
   };
+
 
   return (
     <Modal
@@ -128,7 +142,7 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
                   on && 'border-primary bg-accent hover:bg-accent',
                 )}
               >
-                <button type="button" onClick={() => toggle(e.id)} aria-pressed={on}>
+                <button type="button" onClick={() => toggle(e)} aria-pressed={on}>
                   <ItemContent className="min-w-0 gap-0.5">
                     <ItemTitle className="w-full truncate">{e.name}</ItemTitle>
                     <ItemDescription className="text-xs">
@@ -174,4 +188,28 @@ export function ExercisePicker({ title = 'Add exercise', onClose, onPick }: Prop
       )}
     </Modal>
   );
+}
+
+/**
+ * Shared exercises for a search, minus ones this person already has (same name)
+ * and other muscle groups when a filter is on. A moment after typing stops.
+ */
+export function useSharedExercises(q: string, mine: { name: string }[], muscle: Muscle | 'All' = 'All') {
+  const [state, setState] = useState<{ q: string; items: SharedExercise[]; loading: boolean }>({ q: '', items: [], loading: false });
+  useEffect(() => {
+    if (q.length < 2) return setState({ q, items: [], loading: false });
+    setState((s) => ({ ...s, q, loading: true }));
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      const items = await searchSharedExercises(q, ctrl.signal).catch(() => []);
+      if (!ctrl.signal.aborted) setState({ q, items, loading: false });
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q]);
+  const have = useMemo(() => new Set(mine.map((e) => e.name.trim().toLowerCase())), [mine]);
+  const items = state.q === q ? state.items.filter((x) => !have.has(x.name.toLowerCase()) && (muscle === 'All' || x.muscle === muscle)) : [];
+  return { items, loading: state.loading && state.q === q };
 }

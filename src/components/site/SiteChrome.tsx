@@ -61,13 +61,14 @@ export function SiteFooter({ className, mutedClass, current }: { className?: str
         <div className="flex flex-col gap-3">
           <Brand />
           <p className={cn('max-w-xs text-sm leading-relaxed', mutedClass)}>
-            Free gym workout and running tracker. Log sets, reps and kg, track your runs, beat last time. Android, iPhone and laptop.
+            Free gym workout, running and calorie tracker. Log sets, reps and kg, track your runs, count calories in Indian food. Android,
+            iPhone and laptop.
           </p>
           <Link href={SIGNUP_HREF} className="w-fit text-sm font-semibold underline underline-offset-4">
             Start free →
           </Link>
         </div>
-        <nav aria-label="RepUp guides" className="grid gap-8 sm:grid-cols-3">
+        <nav aria-label="RepUp guides" className="grid gap-8 sm:grid-cols-2 xl:grid-cols-4">
           {PAGE_GROUPS.map((g) => (
             <div key={g.id}>
               <p className="mb-3 text-sm font-semibold">{g.label}</p>

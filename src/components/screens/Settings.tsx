@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, LogOut, Pencil, RefreshCw, Trash2, UserX } from 'lucide-react';
+import { Bell, ChevronRight, Loader2, LogOut, Pencil, RefreshCw, Trash2, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -13,6 +13,7 @@ import { logOutWithCheck } from '../account-actions';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
 import { ProfileModal } from '../ProfileModal';
+import { RemindersSheet } from '../RemindersSheet';
 import { UserAvatar } from '../UserAvatar';
 
 const THEMES: { id: ThemePref; label: string }[] = [
@@ -25,10 +26,23 @@ const THEMES: { id: ThemePref; label: string }[] = [
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { settings } = useAppState();
   const { pref } = useTheme();
+  const account = useAccount();
+  const [reminders, setReminders] = useState(false);
 
   return (
     <Modal title="Settings" onClose={onClose}>
       <AccountSection />
+      {account && (
+        <Button variant="outline" className="h-12 justify-start gap-3 text-left" onClick={() => setReminders(true)}>
+          <Bell className="text-brand" />
+          <span className="flex-1">
+            <span className="block text-sm font-medium">Reminders</span>
+            <span className="block text-xs font-normal text-muted-foreground">Workout days, meals, water, weigh-in</span>
+          </span>
+          <ChevronRight className="text-muted-foreground" />
+        </Button>
+      )}
+      {reminders && <RemindersSheet onClose={() => setReminders(false)} />}
       <FieldGroup className="gap-6">
         <FieldSet className="gap-2">
           <FieldLegend variant="label" className="mb-0">

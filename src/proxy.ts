@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isSupabaseConfigured, SUPABASE_KEY, SUPABASE_URL } from '@/lib/supabase/env';
-import { MARKETING_PATHS } from '@/lib/site';
+import { MARKETING_PATHS, MARKETING_PREFIXES } from '@/lib/site';
 
 /**
  * Runs before every page request (Next.js 16 "Proxy", formerly Middleware).
@@ -24,8 +24,10 @@ export async function proxy(request: NextRequest) {
   // allow-listed), a login/confirm/reset `code` can land on "/" or "/login".
   // Hand it to the callback route so it isn't lost.
   const landed = request.nextUrl;
+  // The reminders job is called by the database's cron with its own secret, not a login.
+  if (landed.pathname === '/api/push/run') return NextResponse.next();
   // Landing pages are the same for everyone: no session work needed.
-  if (MARKETING_PATHS.includes(landed.pathname)) return NextResponse.next();
+  if (MARKETING_PATHS.includes(landed.pathname) || MARKETING_PREFIXES.some((p) => landed.pathname.startsWith(p))) return NextResponse.next();
 
   // Never for the app's own API (e.g. a barcode is not a sign-in code).
   const isApi = landed.pathname.startsWith('/api/');

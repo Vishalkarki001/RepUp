@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { useSyncExternalStore } from 'react';
 import { forgetActiveRun } from './run/tracker';
 import { forgetUserOnDevice } from './store';
+import { disablePushHere } from './push/client';
 import { supabase } from './supabase/client';
 import { flush, hasUnsyncedChanges, stopSync } from './sync';
 
@@ -78,6 +79,8 @@ export async function wouldLoseChanges(): Promise<boolean> {
 export async function signOut(): Promise<void> {
   const id = account?.id;
   await flush();
+  // No more reminders for this account on this device (the next person here shouldn't get them).
+  await disablePushHere();
   stopSync();
   if (id) forgetUserOnDevice(id);
   forgetActiveRun();

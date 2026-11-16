@@ -5,9 +5,9 @@ import type { FoodRow } from './foods';
 export type IndbRow = [string, number, number, number, number, string, number, Record<string, number>?];
 
 const STOP = new Set(['plain', 'cooked', 'with', 'and', 'ki', 'ka', 'ke']);
-const slug = (s: string) => normalizeText(s).replace(/ /g, '-').slice(0, 60);
+export const slug = (s: string) => normalizeText(s).replace(/ /g, '-').slice(0, 60);
 
-function servingsFrom(spec: string): Serving[] {
+export function servingsFrom(spec: string): Serving[] {
   return spec
     .split('|')
     .map((part) => {

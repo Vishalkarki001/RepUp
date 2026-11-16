@@ -51,6 +51,8 @@ export function appLd(description: string) {
       'Shows last time and a target for today (progressive overload)',
       'Progress charts and body-weight log',
       'Works offline, syncs across devices',
+      'GPS running and walking tracker',
+      'Calorie counter with Indian food, barcode scan, protein and macros',
     ],
   };
 }

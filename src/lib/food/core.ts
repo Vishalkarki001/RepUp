@@ -4,6 +4,7 @@
  * local search and the calorie calculator (Mifflin–St Jeor).
  * No React, no browser APIs.
  */
+import { normalizeText, search } from '../search';
 import { NUTRIENT_KEYS, type Activity, type FoodGoal, type FoodLog, type FoodPlan, type FoodProfile, type FoodSource, type Macros, type Micro, type NutrientKey, type Sex } from '../types';
 
 /** Where the numbers come from (shown as a small badge). */
@@ -137,50 +138,7 @@ export const sumMacros = (list: Macros[]): Macros =>
 /* Search                                                               */
 /* ------------------------------------------------------------------ */
 
-export const normalizeText = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim();
-
-/** Edit distance ≤ 1 (one typo: "panner" → "paneer", "chapatti" → "chapati"). */
-function oneEditAway(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0;
-  let j = 0;
-  let edits = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      i++;
-      j++;
-      continue;
-    }
-    if (++edits > 1) return false;
-    if (a.length > b.length) i++;
-    else if (b.length > a.length) j++;
-    else {
-      i++;
-      j++;
-    }
-  }
-  return edits + (a.length - i) + (b.length - j) <= 1;
-}
-
-/** How well one query word matches a list of words (0 = not at all). */
-function wordScore(q: string, words: string[]): number {
-  let best = 0;
-  for (const w of words) {
-    if (w === q) return 4;
-    if (w.startsWith(q)) best = Math.max(best, 3);
-    else if (q.length >= 3 && w.includes(q)) best = Math.max(best, 2);
-    else if (q.length >= 4 && (oneEditAway(q, w) || (w.length > q.length && oneEditAway(q, w.slice(0, q.length + 1)))))
-      best = Math.max(best, 1.5);
-  }
-  return best;
-}
+export { normalizeText };
 
 export interface Searchable {
   food: Food;
@@ -197,32 +155,9 @@ export function makeSearchable(food: Food, aliases = ''): Searchable {
   };
 }
 
-/** Foods matching every word of the query, best first. `boost` ranks e.g. recently eaten foods higher. */
+/** Foods matching the query (forgiving: typos, partial words, no spaces), best first. `boost` ranks e.g. recently eaten foods higher. */
 export function searchFoods(list: Searchable[], query: string, limit = 30, boost?: (id: string) => number): Food[] {
-  const qs = normalizeText(query).split(' ').filter(Boolean);
-  if (!qs.length) return [];
-  const scored: { food: Food; score: number }[] = [];
-  for (const s of list) {
-    let score = 0;
-    let ok = true;
-    for (const q of qs) {
-      const inName = wordScore(q, s.nameWords);
-      const inAlias = wordScore(q, s.aliasWords) * 0.8;
-      const best = Math.max(inName, inAlias);
-      if (!best) {
-        ok = false;
-        break;
-      }
-      score += best;
-    }
-    if (!ok) continue;
-    // The name starting with the query, and shorter names, read as better matches.
-    if (s.nameWords.join(' ').startsWith(qs.join(' '))) score += 2;
-    score -= s.nameWords.length * 0.05;
-    score += boost?.(s.food.id) ?? 0;
-    scored.push({ food: s.food, score });
-  }
-  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.food);
+  return search(list, query, (s) => s, limit, boost ? (s) => boost(s.food.id) : undefined).map((s) => s.food);
 }
 
 /* ------------------------------------------------------------------ */

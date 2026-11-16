@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
-import { useAppState } from '@/lib/store';
+import { search, searchText } from '@/lib/search';
+import { actions, useAppState } from '@/lib/store';
 import { MUSCLES, type Muscle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { SectionTitle } from '../common';
 import { ScreenHeader } from '../ScreenHeader';
 import { ExerciseEditor } from '../ExerciseEditor';
+import { useSharedExercises, type Listed } from '../ExercisePicker';
 import { ExerciseHistoryModal } from './ExerciseHistory';
 
 export function LibraryScreen() {
@@ -28,13 +30,22 @@ export function LibraryScreen() {
     return m;
   }, [s.workouts]);
 
+  const q = query.trim();
+  // Exercises other people created show up in the same results, like any other exercise.
+  const shared = useSharedExercises(q, s.exercises, muscle);
+  // Searching: one list, best match first (typos, part of a word, "pushup", "db press"). Otherwise by muscle, A–Z.
   const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = s.exercises
-      .filter((e) => (muscle === 'All' || e.muscle === muscle) && (!q || e.name.toLowerCase().includes(q)))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    return MUSCLES.map((m) => [m, list.filter((e) => e.muscle === m)] as const).filter(([, l]) => l.length);
-  }, [s.exercises, query, muscle]);
+    const inMuscle: Listed[] = s.exercises.filter((e) => muscle === 'All' || e.muscle === muscle);
+    if (q) {
+      const others: Listed[] = shared.items.map((x) => ({ ...x, fromShared: true }));
+      const hits = search([...inMuscle, ...others], q, (e) => searchText(e.name));
+      return hits.length ? [['Best matches', hits] as const] : [];
+    }
+    const list = [...inMuscle].sort((a, b) => a.name.localeCompare(b.name));
+    return MUSCLES.map((m) => [m as string, list.filter((e) => e.muscle === m)] as const).filter(([, l]) => l.length);
+  }, [s.exercises, q, muscle, shared.items]);
+  /** Open an exercise; one someone else created becomes one of yours first. */
+  const open = (e: Listed) => setOpenId(e.fromShared ? actions.addSharedExercise(e).id : e.id);
 
   return (
     <div className="flex flex-col gap-5">
@@ -81,10 +92,11 @@ export function LibraryScreen() {
             <ItemGroup role={undefined} className="gap-0 divide-y">
               {list.map((e) => (
                 <Item key={e.id} asChild size="sm" className="flex-nowrap rounded-none px-4 text-left hover:bg-muted/50">
-                  <button onClick={() => setOpenId(e.id)}>
+                  <button onClick={() => open(e)}>
                     <ItemContent className="min-w-0 gap-0.5">
                       <ItemTitle className="w-full truncate">{e.name}</ItemTitle>
                       <ItemDescription className="truncate text-xs">
+                        {q ? `${e.muscle} · ` : ''}
                         {e.equipment}
                         {e.custom ? ' · yours' : ''}
                       </ItemDescription>
@@ -104,9 +116,9 @@ export function LibraryScreen() {
           </Card>
         </section>
       ))}
-      {!grouped.length && (
+      {!grouped.length && !shared.loading && (
         <Button variant="outline" className="w-full border-dashed text-muted-foreground" onClick={() => setCreating(true)}>
-          <Plus /> Create “{query.trim()}”
+          <Plus /> Create “{q}”
         </Button>
       )}
 

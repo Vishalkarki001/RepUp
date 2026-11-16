@@ -148,6 +148,29 @@ export function HomeLanding() {
         </p>
       </Split>
 
+      <Split kicker="New · Food mode" title="Count calories in the food you actually eat." mock={<PhoneMock screen="food" theme="light" />}>
+        <p className="-mt-2 mb-6 text-[#525252]">
+          Switch to Food mode from the account menu. Roti, dal, sabzi and paneer in katori or roti sizes, packets by barcode, protein
+          and macros left for the day.
+        </p>
+        <ul className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          {[
+            ['~1,000 foods built in', 'Indian dishes and basics, searchable in Hindi names too.'],
+            ['Barcode scan', 'Packets in a second, with the phone camera.'],
+            ['Your target', 'Worked out for you, or set your own calories and macro %.'],
+            ['Every nutrient', 'Fibre, iron, vitamins and more for your day.'],
+          ].map(([t, d]) => (
+            <li key={t}>
+              <h3 className="font-semibold">{t}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#525252]">{d}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 text-sm text-[#525252]">
+          <A href="/calorie-counter-app">About the calorie counter →</A> · <A href="/calories">Indian food calorie chart →</A>
+        </p>
+      </Split>
+
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 pb-4 sm:px-6">
         <h2 className="mb-8 text-3xl font-semibold tracking-tight sm:text-4xl">Guides to get you started</h2>
         <Cards
@@ -159,6 +182,9 @@ export function HomeLanding() {
             { tag: 'Running', title: 'Your first 5K', body: <A href="/couch-to-5k-plan">Couch to 5K in 8 weeks →</A> },
             { tag: 'Running', title: 'Know your pace', body: <A href="/running-pace-calculator">Running pace calculator →</A> },
             { tag: 'Gym + running', title: 'Do both, the smart way', body: <A href="/running-and-lifting-schedule">Running + lifting schedule →</A> },
+            { tag: 'Food', title: 'Calories in Indian food', body: <A href="/calories">Roti, dal, rice, paneer and more →</A> },
+            { tag: 'Food', title: 'How much should you eat?', body: <A href="/calorie-calculator">Free calorie calculator →</A> },
+            { tag: 'Food', title: 'Count calories easily', body: <A href="/calorie-counter-app">Free calorie counter app →</A> },
           ]}
         />
       </section>

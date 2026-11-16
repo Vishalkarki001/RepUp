@@ -1,5 +1,5 @@
 /* RepUp service worker: app shell works offline after the first visit. */
-const VERSION = 'v8';
+const VERSION = 'v9';
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const PRECACHE = ['/', '/manifest.webmanifest', '/favicon-48.png?v=3', '/icon-192.png?v=3', '/icon-512.png?v=3', '/apple-icon.png?v=3'];
@@ -146,5 +146,48 @@ self.addEventListener('fetch', (event) => {
         return res;
       })
       .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || new Response('Offline', { status: 503 }))),
+  );
+});
+
+/* ---------- reminders (push notifications) ---------- */
+
+/** A reminder arrived (even with RepUp closed): show it. */
+self.addEventListener('push', (event) => {
+  let msg = {};
+  try {
+    msg = event.data ? event.data.json() : {};
+  } catch {
+    msg = { title: 'RepUp', body: event.data ? event.data.text() : '' };
+  }
+  const title = msg.title || 'RepUp';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: msg.body || '',
+      icon: msg.icon || '/icon-192.png?v=3',
+      badge: msg.badge || '/badge-96.png',
+      tag: msg.tag || 'repup',
+      renotify: false,
+      timestamp: msg.ts || Date.now(),
+      vibrate: [80, 40, 80],
+      data: { url: msg.url || '/' },
+    }),
+  );
+});
+
+/** Tap: bring RepUp to the front on the right screen (or open it). */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+      if (open) {
+        // The app reads ?open=… on load and on this message.
+        open.postMessage({ type: 'repup-open', url: target.pathname + target.search });
+        return open.focus();
+      }
+      return self.clients.openWindow(target.pathname + target.search);
+    }),
   );
 });

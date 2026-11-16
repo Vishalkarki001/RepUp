@@ -5,7 +5,7 @@ import { cn } from 'cn';
  * numbers. Pure HTML/CSS, so it is sharp at any size and costs no image bytes.
  * Colours are fixed (not the page theme) so it looks like the app on any page.
  */
-type Screen = 'log' | 'week' | 'progress' | 'bodyweight' | 'run-live' | 'run-summary' | 'run-week';
+type Screen = 'log' | 'week' | 'progress' | 'bodyweight' | 'run-live' | 'run-summary' | 'run-week' | 'food';
 
 const C = {
   dark: {
@@ -42,6 +42,7 @@ export function PhoneMock({
     'run-live': 'RepUp running screen: timer 24:35, 3.42 km, pace 7 minutes 11 seconds per km, pause, lock and finish buttons',
     'run-summary': 'RepUp run saved: 5.02 km in 36:10, route on a map and the time for every kilometre',
     'run-week': 'RepUp run tab: this week with run days marked, Start run button and weekly kilometres',
+    food: 'RepUp food diary: 1,045 of 1,800 kcal eaten, protein, carbs and fat bars, breakfast poha and chai, lunch roti, dal and paneer',
   };
   const label =
     RUN_LABELS[screen] ??
@@ -73,6 +74,7 @@ export function PhoneMock({
         {screen === 'run-live' && <RunLiveScreen c={c} />}
         {screen === 'run-summary' && <RunSummaryScreen c={c} />}
         {screen === 'run-week' && <RunWeekScreen c={c} />}
+        {screen === 'food' && <FoodScreen c={c} />}
       </div>
     </figure>
   );
@@ -481,6 +483,80 @@ function RunWeekScreen({ c }: { c: Tone }) {
         <Tile c={c} value="3" label="runs" />
         <Tile c={c} value="1:49:20" label="time" />
       </div>
+    </>
+  );
+}
+
+function FoodScreen({ c }: { c: Tone }) {
+  const macros: [string, number, number][] = [
+    ['Protein', 43, 110],
+    ['Carbs', 126, 225],
+    ['Fat', 41, 60],
+  ];
+  const meals: [string, string, [string, string, string][]][] = [
+    ['Breakfast', '381', [['Poha', '1 plate', '306'], ['Chai (milk + sugar)', '1 cup', '75']]],
+    ['Lunch', '664', [['Roti', '2 roti', '211'], ['Dal tadka', '1 katori', '188'], ['Paneer', '100 g', '265']]],
+  ];
+  return (
+    <>
+      <Top c={c} eyebrow="Friday, 13 November" title="Food" />
+      <div className="grid grid-cols-7 gap-1">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+          <span
+            key={i}
+            className={cn('flex flex-col items-center rounded-md border py-1 text-[9px]', i === 4 ? 'border-[#7c3aed] bg-[#7c3aed] text-white' : c.line)}
+          >
+            {d}
+            <b className="text-[11px] tabular-nums">{9 + i}</b>
+          </span>
+        ))}
+      </div>
+      <div className={cn('flex flex-col gap-2 rounded-2xl border p-3', c.card)}>
+        <div className="flex items-end justify-between">
+          <p className="text-2xl font-semibold tabular-nums">
+            1,045<span className={cn('text-xs font-normal', c.muted)}> / 1,800 kcal</span>
+          </p>
+          <p className="text-right text-[13px] font-semibold tabular-nums">
+            755<span className={cn('block text-[9px] font-normal', c.muted)}>left</span>
+          </p>
+        </div>
+        <span className={cn('h-1.5 overflow-hidden rounded-full', c.chip)}>
+          <span className="block h-full w-[58%] rounded-full bg-[#7c3aed]" />
+        </span>
+        <div className="grid grid-cols-3 gap-2">
+          {macros.map(([k, v, t]) => (
+            <div key={k}>
+              <p className={cn('text-[9px]', c.muted)}>{k}</p>
+              <p className="text-[11px] font-semibold tabular-nums">
+                {v}
+                <span className={cn('font-normal', c.muted)}> / {t} g</span>
+              </p>
+              <span className={cn('mt-1 block h-1 overflow-hidden rounded-full', c.chip)}>
+                <span className="block h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.min(100, (v / t) * 100)}%` }} />
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {meals.map(([meal, total, items]) => (
+        <div key={meal} className="flex flex-col gap-1">
+          <p className={cn('flex justify-between text-[9px] font-medium uppercase', c.muted)}>
+            {meal}
+            <span className="tabular-nums">{total} kcal</span>
+          </p>
+          <div className={cn('flex flex-col rounded-xl border', c.card)}>
+            {items.map(([n, amt, k], i) => (
+              <div key={n} className={cn('flex items-center justify-between px-2.5 py-1.5', i > 0 && cn('border-t', c.line))}>
+                <span>
+                  <span className="block text-[11px] font-medium">{n}</span>
+                  <span className={cn('block text-[9px]', c.muted)}>{amt}</span>
+                </span>
+                <span className="text-[11px] font-semibold tabular-nums">{k}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </>
   );
 }

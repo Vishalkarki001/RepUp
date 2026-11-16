@@ -17,7 +17,7 @@ export default function PrivacyPage() {
     <LegalPage
       path={PATH}
       title="Privacy policy"
-      updated="13 November 2026"
+      updated="16 November 2026"
       intro={
         <p>
           RepUp is a free gym workout tracker. We keep only what the app needs to work: your login and your workouts. We do not
@@ -40,6 +40,17 @@ export default function PrivacyPage() {
             <b>Runs and walks (only if you use running mode):</b> time, distance, pace, estimated steps and calories, the weather at
             the start, and your route on the map. Your location is used only while you are tracking a run, after you allow it, and
             only the route of that run is saved.
+          </li>
+          <li>
+            <b>Food (only if you use food mode):</b> the foods you log with amounts and nutrition, your daily calorie and macro
+            target, the age, sex, height, weight and activity you enter to work it out, and glasses of water. The camera is used only
+            while you scan a barcode: the picture is read on your phone and never saved or sent anywhere, only the barcode number is
+            looked up.
+          </li>
+          <li>
+            <b>Reminders (only if you turn them on):</b> which reminders you chose and their times, your time zone, and an address
+            from your browser’s notification service (Google, Apple or Mozilla) so we can send them. Turning reminders off or logging
+            out removes it from that device.
           </li>
           <li>
             <b>Basic account activity:</b> when you signed up, last signed in and last opened the app.
@@ -68,17 +79,26 @@ export default function PrivacyPage() {
             <b>You.</b> Each account can only read and change its own data; the database enforces this for every request.
           </li>
           <li>
+            <b>Everyone using RepUp, for shared lists only.</b> When you create an exercise, its name, muscle group and equipment
+            are added to a shared list so other people can find it. When you add a food from its pack label, its name, brand,
+            barcode and nutrition values are shared the same way. Your name is never shown with them, and your notes, workouts, runs
+            and food diary stay private. RepUp admins can remove anything wrong from the shared lists.
+          </li>
+          <li>
             <b>RepUp admins</b> (the small team that runs RepUp) can see your account details (name, email, photo, sign-up and
-            last-active dates), your logged workouts (exercises, sets, weights, reps and notes) and your runs (distance, time, pace,
-            steps, calories, weather and notes, but not your route map). We use this only to run and
+            last-active dates), your logged workouts (exercises, sets, weights, reps and notes), your runs (distance, time, pace,
+            steps, calories, weather and notes, but not your route map) and your food diary (foods, amounts, calories, water and your
+            daily target). We use this only to run and
             improve RepUp, help you when you ask, and stop misuse. Admins can also block or delete an account that breaks our{' '}
             <a href="/terms">terms</a>. Every admin action is recorded.
           </li>
           <li>
             <b>Service providers</b> that host the app for us: Supabase (database, login and photo storage, servers in Mumbai,
             India), Vercel (website hosting), Google (sign-in with Google, and the Gmail account that sends our emails), Open-Meteo (the
-            weather when a run starts; it receives your position rounded to about 1 km) and OpenStreetMap (map images of your route). They
-            process data only to provide their service to us.
+            weather when a run starts; it receives your position rounded to about 1 km), OpenStreetMap (map images of your route), USDA
+            FoodData Central (receives the food words you search for) and Open Food Facts (receives the barcode numbers you scan). Food
+            searches and barcodes go through RepUp’s server, so those two don’t see who you are (only if our server can’t reach Open
+            Food Facts does your phone ask it directly). They process data only to provide their service to us.
           </li>
         </ul>
         <p className="mt-3">We never sell or rent your data and never share it with advertisers.</p>

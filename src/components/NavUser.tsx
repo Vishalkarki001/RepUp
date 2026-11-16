@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus, Utensils, type LucideIcon } from 'lucide-react';
+import { Bell, ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus, Utensils, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -21,6 +21,7 @@ import { syncNow } from '@/lib/sync';
 import type { AppMode } from '@/lib/types';
 import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
+import { RemindersSheet } from './RemindersSheet';
 import { SettingsModal } from './screens/Settings';
 import { UserAvatar } from './UserAvatar';
 
@@ -73,7 +74,7 @@ export function AccountMenu({
 }) {
   const account = useAccount();
   const router = useRouter();
-  const [open, setOpen] = useState<null | 'profile' | 'settings'>(null);
+  const [open, setOpen] = useState<null | 'profile' | 'settings' | 'reminders'>(null);
   const { settings } = useAppState();
   const { track } = useRun();
   if (!account) return null;
@@ -122,6 +123,9 @@ export function AccountMenu({
             <DropdownMenuItem onSelect={() => setOpen('profile')}>
               <UserPen /> Edit profile
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setOpen('reminders')}>
+              <Bell /> Reminders
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setOpen('settings')}>
               <Settings /> Settings
             </DropdownMenuItem>
@@ -141,6 +145,7 @@ export function AccountMenu({
 
       {open === 'profile' && <ProfileModal onClose={() => setOpen(null)} />}
       {open === 'settings' && <SettingsModal onClose={() => setOpen(null)} />}
+      {open === 'reminders' && <RemindersSheet onClose={() => setOpen(null)} />}
     </>
   );
 }

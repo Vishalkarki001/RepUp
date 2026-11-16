@@ -2,15 +2,16 @@
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://getrepup.vercel.app').replace(/\/$/, '');
 export const SITE_NAME = 'RepUp';
-export const SITE_TAGLINE = 'Free gym workout and running tracker: log sets, reps and kg, track your runs, beat last time.';
+export const SITE_TAGLINE = 'Free gym workout, running and calorie tracker: log sets, reps and kg, track your runs, count calories in Indian food.';
 
-export type PageGroup = 'gym' | 'running' | 'both';
+export type PageGroup = 'gym' | 'running' | 'both' | 'food';
 
-/** Footer headings for the three groups of guides. */
+/** Footer headings for the groups of guides. */
 export const PAGE_GROUPS: { id: PageGroup; label: string }[] = [
   { id: 'gym', label: 'Gym' },
   { id: 'running', label: 'Running' },
   { id: 'both', label: 'Gym + running' },
+  { id: 'food', label: 'Food & calories' },
 ];
 
 /**
@@ -50,6 +51,10 @@ export const LANDING_PAGES = [
   { path: '/weekly-fitness-planner', label: 'Weekly fitness planner', group: 'both' },
   { path: '/cardio-tracker-app', label: 'Cardio tracker', group: 'both' },
   { path: '/home-workout-and-walking-plan', label: 'Home workout + walking', group: 'both' },
+
+  { path: '/calorie-counter-app', label: 'Calorie counter app', group: 'food' },
+  { path: '/calorie-calculator', label: 'Calorie calculator', group: 'food' },
+  { path: '/calories', label: 'Indian food calorie chart', group: 'food' },
 ] as const satisfies readonly { path: string; label: string; group: PageGroup }[];
 
 export type LandingPath = (typeof LANDING_PAGES)[number]['path'];
@@ -61,6 +66,9 @@ export const LEGAL_PAGES = [
 ] as const;
 
 export const CONTACT_EMAIL = 'repup.contact@gmail.com';
+
+/** Path prefixes whose pages are all public (one page per food: /calories/roti-chapati-plain …). */
+export const MARKETING_PREFIXES: readonly string[] = ['/calories/'];
 
 /** Paths served to everyone (no login needed). */
 export const MARKETING_PATHS: readonly string[] = [
@@ -77,10 +85,12 @@ export const APP_FACTS = [
   'History by date; edit past workouts',
   'Progress charts per exercise, weekly sets per muscle, body-weight log',
   'Plate calculator for barbell lifts',
-  'Your own custom exercises',
+  'Your own exercises; ones people create are shared (name only, notes stay private) so others find them in search',
+  'Forgiving search: typos, part of a name, "pushup", gym shorthand like db / ohp / rdl',
   'Works offline at the gym; saves to your account when back online',
   'Same data on phone and laptop (log in with email or Google)',
   'Installs on Android and iPhone home screen (PWA), light and dark mode',
+  'Reminders (notifications): workout days, log lunch / dinner, water, weekly weigh-in, run days; skipped when already done. iPhone: installed app only',
 ] as const;
 
 /**

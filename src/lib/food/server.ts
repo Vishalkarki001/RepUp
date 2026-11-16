@@ -1,7 +1,8 @@
 import 'server-only';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { adminDb, signedInUser } from '../supabase/admin';
 import { createSupabaseServer } from '../supabase/server';
-import { isSupabaseConfigured, SUPABASE_URL } from '../supabase/env';
+import { isSupabaseConfigured } from '../supabase/env';
 import { believable, cleanMicro, normalizeText, r1, type Food, type Serving } from './core';
 import { barcodeVariants, fetchOffProduct, foodFromOff, type BarcodeResult } from './off';
 import type { FoodSource, Micro, NutrientKey } from '../types';
@@ -17,25 +18,11 @@ import type { FoodSource, Micro, NutrientKey } from '../types';
  */
 
 const USDA_KEY = process.env.USDA_API_KEY;
-const SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 const UA = 'RepUp/1.0 (+https://getrepup.vercel.app)';
 /** A search looked up at USDA isn't looked up again for this long. */
 const REFRESH_DAYS = 30;
 
-let admin: SupabaseClient | null = null;
-/** Database client that may write to the shared list (server only). Null when the secret key isn't set. */
-function adminDb(): SupabaseClient | null {
-  if (!SECRET_KEY || !SUPABASE_URL) return null;
-  return (admin ??= createClient(SUPABASE_URL, SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } }));
-}
-
-/** The signed-in user's id, or null (search is for signed-in users only). */
-export async function signedInUser(): Promise<string | null> {
-  if (!isSupabaseConfigured) return 'local-dev'; // no accounts at all (local development)
-  const db = await createSupabaseServer();
-  const { data } = await db.auth.getClaims();
-  return (data?.claims?.sub as string | undefined) ?? null;
-}
+export { signedInUser };
 
 /* ------------------------------------------------------------------ */
 /* shared list (food_catalog)                                            */
@@ -208,6 +195,11 @@ export async function searchServer(query: string): Promise<{ foods: Food[]; usda
   ]);
   const byId = new Map<string, Food>();
   for (const r of (rows ?? []) as CatalogRow[]) byId.set(r.id, foodFromRow(r));
+  // Few plain matches: also look for close spellings in the shared list ("masla oats" → Masala Oats).
+  if (db && byId.size < 10) {
+    const { data: close } = await db.rpc('search_food_catalog', { p_q: q, p_limit: 15 });
+    if (Array.isArray(close)) for (const r of close as CatalogRow[]) if (!byId.has(r.id)) byId.set(r.id, foodFromRow(r));
+  }
 
   let usda: 'ok' | 'off' | 'error' = USDA_KEY ? 'ok' : 'off';
   const fresh = known.data && Date.now() - Date.parse(known.data.fetched_at) < REFRESH_DAYS * 86_400_000;

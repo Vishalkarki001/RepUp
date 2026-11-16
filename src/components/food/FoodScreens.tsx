@@ -47,7 +47,7 @@ const dateLabel = (date: string) => {
 
 const WATER_GOAL = 8; // glasses of 250 ml ≈ 2 litres
 
-export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
+export function FoodDiary({ onSetGoal, startMeal, onStarted }: { onSetGoal: () => void; startMeal?: Meal | null; onStarted?: () => void }) {
   const { foodLogs, foodGoal, water } = useAppState();
   const [exporting, setExporting] = useState(false);
   const [nutrition, setNutrition] = useState(false);
@@ -56,6 +56,13 @@ export function FoodDiary({ onSetGoal }: { onSetGoal: () => void }) {
   const [date, setDate] = useState(today);
   const [adding, setAdding] = useState<{ meal: Meal; edit?: FoodLog } | null>(null);
   useEffect(() => setDate(today), [today]); // a new day → jump to it
+  // Opened from a "log lunch" reminder: straight to Add food for that meal, today.
+  useEffect(() => {
+    if (!startMeal) return;
+    setDate(todayISO());
+    setAdding({ meal: startMeal });
+    onStarted?.();
+  }, [startMeal, onStarted]);
   // Load the food list now, so the first search is instant (and it's saved for offline use).
   useEffect(() => void loadLocalFoods().catch(() => {}), []);
 

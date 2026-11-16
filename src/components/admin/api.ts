@@ -128,6 +128,17 @@ export interface AdminFoodDay {
   }[];
 }
 
+export interface AdminSharedExercise {
+  id: string;
+  name: string;
+  muscle: string;
+  equipment: string;
+  created_at: string;
+  added_by: string | null;
+  /** People who added it to their own exercises from the shared list. */
+  users: number;
+}
+
 export interface AdminFood {
   id: string;
   source: 'usda' | 'off' | 'user';
@@ -207,6 +218,8 @@ export const adminApi = {
   foods: (opts: { search?: string; source?: AdminFood['source'] | null; limit?: number } = {}) =>
     call<AdminFood[]>('admin_foods', { p_search: opts.search?.trim() || null, p_source: opts.source ?? null, p_limit: opts.limit ?? 200 }),
   foodStats: () => call<AdminFoodStats>('admin_food_stats'),
+  sharedExercises: (search?: string) => call<AdminSharedExercise[]>('admin_exercises', { p_search: search?.trim() || null, p_limit: 300 }),
+  deleteSharedExercise: (id: string) => call<null>('admin_delete_exercise', { p_id: id }),
   deleteFood: (id: string) => call<null>('admin_delete_food', { p_id: id }),
   setRole: (user: string, role: 'user' | 'admin') => call<null>('admin_set_role', { p_user: user, p_role: role }),
   setBlocked: (user: string, blocked: boolean) => call<null>('admin_set_blocked', { p_user: user, p_blocked: blocked }),

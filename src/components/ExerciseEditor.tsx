@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { shareExercise } from '@/lib/exercises/shared';
 import { actions, getState, useAppState } from '@/lib/store';
 import { EQUIPMENT, MUSCLES, WEEKDAYS, type Equipment, type Exercise, type Muscle } from '@/lib/types';
 import { confirmDialog } from './Confirm';
@@ -47,9 +48,11 @@ export function ExerciseEditor({
     if (!clean || duplicate) return;
     if (editing) {
       actions.updateExercise(exercise.id, { name: clean, muscle, equipment });
+      if (exercise.custom && clean !== exercise.name) void shareExercise({ name: clean, muscle, equipment }); // a fixed name is shared too
       toast.success(clean !== exercise.name ? `Renamed to “${clean}”` : 'Exercise updated');
     } else {
       const created = actions.addExercise({ name: clean, muscle, equipment });
+      void shareExercise(created); // so the next person who searches for it finds it
       toast.success(`“${clean}” created`);
       onCreated?.(created);
     }

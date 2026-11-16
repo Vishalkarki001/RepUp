@@ -21,12 +21,12 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { refreshProfile, setAccountFromUser } from '@/lib/account';
-import { switchUser, useAppState } from '@/lib/store';
+import { actions as storeActions, getState, switchUser, useAppState } from '@/lib/store';
 import { supabase } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/env';
 import { startSync, useSyncStatus } from '@/lib/sync';
 import { useRun } from '@/lib/run/tracker';
-import type { AppMode, RunEntry, WorkoutSummary } from '@/lib/types';
+import type { AppMode, Meal, RunEntry, WorkoutSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Loader } from './Loader';
 import { NavUser } from './NavUser';
@@ -66,6 +66,8 @@ const BASE_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'progress', label: 'Progress', icon: ChartLine },
   { id: 'library', label: 'Exercises', icon: ListChecks },
 ];
+
+const settingsMode = (): AppMode => getState().settings.mode;
 
 /** Signs the user in (server-verified), loads + syncs their data, then shows the app. */
 export function App() {
@@ -131,6 +133,10 @@ function ShellInner() {
   const TABS = running ? RUN_TABS : eating ? FOOD_TABS : BASE_TABS;
   useSyncToasts();
   const [tab, setTab] = useState<Tab>(FIRST_TAB[mode]);
+  /** A tab to open once a mode switch has happened (from a reminder tap). */
+  const pendingTab = useRef<Tab | null>(null);
+  /** Open "Add food" for this meal on the diary (from a "log lunch" reminder). */
+  const [startMeal, setStartMeal] = useState<Meal | null>(null);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [savedRun, setSavedRun] = useState<RunEntry | null>(null);
   const { state } = useSidebar();
@@ -138,8 +144,49 @@ function ShellInner() {
 
   // Switching mode (account menu) opens that mode's first tab.
   useEffect(() => {
-    setTab(FIRST_TAB[mode]);
+    setTab(pendingTab.current ?? FIRST_TAB[mode]);
+    pendingTab.current = null;
   }, [mode]);
+
+  // A tapped reminder opens RepUp on the right screen: /?open=food&meal=lunch …
+  const liveRun = useRef(track);
+  liveRun.current = track;
+  useEffect(() => {
+    const go = (href: string) => {
+      const q = new URL(href, window.location.origin).searchParams;
+      const open = q.get('open');
+      if (!open) return;
+      const meal = q.get('meal');
+      const target: { mode: AppMode; tab: Tab } | null =
+        open === 'workout'
+          ? { mode: 'workout', tab: 'today' }
+          : open === 'food' || open === 'water'
+            ? { mode: 'food', tab: 'food' }
+            : open === 'weight'
+              ? settingsMode() === 'food'
+                ? { mode: 'food', tab: 'food-progress' }
+                : { mode: 'workout', tab: 'progress' }
+              : open === 'run'
+                ? { mode: 'running', tab: 'run' }
+                : null;
+      window.history.replaceState(null, '', '/');
+      // Never pull someone out of a run they're tracking.
+      if (!target || (liveRun.current && target.mode !== 'running')) return;
+      if (open === 'food' && (meal === 'breakfast' || meal === 'lunch' || meal === 'dinner' || meal === 'snacks')) setStartMeal(meal);
+      if (settingsMode() === target.mode) setTab(target.tab);
+      else {
+        pendingTab.current = target.tab;
+        storeActions.updateSettings({ mode: target.mode });
+      }
+    };
+    go(window.location.href);
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'repup-open' && typeof e.data.url === 'string') go(e.data.url);
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
@@ -215,7 +262,7 @@ function ShellInner() {
             ) : tab === 'food-calc' ? (
               <FoodCalories />
             ) : (
-              <FoodDiary onSetGoal={() => setTab('food-calc')} />
+              <FoodDiary onSetGoal={() => setTab('food-calc')} startMeal={startMeal} onStarted={() => setStartMeal(null)} />
             )
           ) : showRun ? (
             <ActiveRun onFinished={setSavedRun} />

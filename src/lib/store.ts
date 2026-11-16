@@ -559,6 +559,19 @@ export const actions = {
     return created;
   },
 
+  /**
+   * Add an exercise someone else shared (keeps its shared id). If this person
+   * already has one with the same name, that one is returned instead.
+   */
+  addSharedExercise(e: Pick<Exercise, 'id' | 'name' | 'muscle' | 'equipment'>): Exercise {
+    const key = e.name.trim().toLowerCase();
+    const existing = state.exercises.find((x) => x.id === e.id || x.name.trim().toLowerCase() === key);
+    if (existing) return existing;
+    const added: Exercise = { id: e.id, name: e.name.trim(), muscle: e.muscle, equipment: e.equipment, custom: true };
+    set((s) => ({ ...s, exercises: [...s.exercises, added] }));
+    return added;
+  },
+
   updateExercise(id: string, patch: Partial<Omit<Exercise, 'id'>>) {
     set((s) => ({ ...s, exercises: s.exercises.map((e) => (e.id === id ? { ...e, ...patch } : e)) }));
   },
