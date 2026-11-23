@@ -23,3 +23,33 @@ export async function signedInUser(): Promise<string | null> {
   const { data } = await db.auth.getClaims();
   return (data?.claims?.sub as string | undefined) ?? null;
 }
+
+/**
+ * Quiet daily limits for paid or shared work (rate_hit() in the database).
+ * Counts one use of `key` today and says whether it's still within `limit`.
+ * Normal use never gets near them; they stop scripts. If the database can't
+ * answer: `failClosed` (paid work, e.g. the AI search) says no, else yes.
+ */
+export async function withinLimit(key: string, limit: number, failClosed = false): Promise<boolean> {
+  if (!isSupabaseConfigured) return true; // local development without accounts
+  const db = adminDb();
+  if (!db) return !failClosed;
+  const { data, error } = await db.rpc('rate_hit', { p_key: key, p_limit: limit });
+  if (error) {
+    console.error('rate limit check failed:', error.message);
+    return !failClosed;
+  }
+  return data === true;
+}
+
+/** Per person, per day (a real person stays far below these). */
+export const LIMITS = {
+  /** New packs looked up on the internet (each costs money). */
+  webLookupsPerUser: 30,
+  /** …and for everyone together. */
+  webLookupsTotal: 300,
+  /** New food searches sent to USDA (its key has an hourly quota shared by everyone). */
+  usdaPerUser: 300,
+  /** "Send a test notification". */
+  testPushesPerUser: 10,
+} as const;

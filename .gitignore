@@ -13,3 +13,6 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+# security audit notes (describes weak spots): never commit
+.security.md

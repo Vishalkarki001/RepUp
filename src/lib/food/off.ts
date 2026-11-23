@@ -48,10 +48,10 @@ export function barcodeVariants(code: string): string[] {
 const FIELDS = 'product_name,product_name_en,brands,quantity,product_quantity,serving_size,serving_quantity,nutriments';
 
 /** The product, or null when Open Food Facts doesn't know the barcode. Throws on network / server errors. */
-export async function fetchOffProduct(code: string, headers?: Record<string, string>): Promise<OffProduct | null> {
+export async function fetchOffProduct(code: string, headers?: Record<string, string>, timeoutMs = 8000): Promise<OffProduct | null> {
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${FIELDS}`, {
     headers,
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: 'no-store',
   });
   if (res.status === 404) return null;

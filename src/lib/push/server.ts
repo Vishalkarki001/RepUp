@@ -52,6 +52,7 @@ export async function sendToUser(db: SupabaseClient, userId: string, msg: PushMe
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {
           TTL: 60 * 60, // an hour old reminder is no use
+          timeout: 10_000, // a push service that doesn't answer mustn't hold up everyone else's reminders
           urgency: 'normal',
           topic: msg.tag.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) || undefined,
         });

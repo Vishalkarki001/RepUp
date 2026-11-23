@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { adminDb, signedInUser } from '../supabase/admin';
+import { adminDb, LIMITS, signedInUser, withinLimit } from '../supabase/admin';
 import { createSupabaseServer } from '../supabase/server';
 import { isSupabaseConfigured } from '../supabase/env';
 import { believable, cleanMicro, normalizeText, r1, type Food, type Serving } from './core';
@@ -179,7 +179,7 @@ const memo = new Map<string, { at: number; foods: Food[] }>();
 const MEMO_MS = 10 * 60_000;
 
 /** Shared list + USDA. New USDA foods are saved to the shared list. */
-export async function searchServer(query: string): Promise<{ foods: Food[]; usda: 'ok' | 'off' | 'error' }> {
+export async function searchServer(query: string, userId: string): Promise<{ foods: Food[]; usda: 'ok' | 'off' | 'error' }> {
   const q = normalizeText(query).slice(0, 60);
   const words = q.split(' ').filter((w) => w.length >= 2).slice(0, 5);
   if (!words.length) return { foods: [], usda: 'ok' };
@@ -213,7 +213,7 @@ export async function searchServer(query: string): Promise<{ foods: Food[]; usda
       const { data } = await writer.from('food_catalog').select(COLS).in('id', missing);
       for (const r of (data ?? []) as CatalogRow[]) byId.set(r.id, foodFromRow(r));
     }
-  } else if (!fresh && USDA_KEY) {
+  } else if (!fresh && USDA_KEY && (await withinLimit(`usda:${userId}`, LIMITS.usdaPerUser))) {
     try {
       const found = await searchUsda(q);
       for (const f of found) if (!byId.has(f.id)) byId.set(f.id, f);
@@ -240,12 +240,43 @@ export async function searchServer(query: string): Promise<{ foods: Food[]; usda
 /* ------------------------------------------------------------------ */
 
 
+/** Barcodes typed in by a user that Open Food Facts didn't know when we last asked (per server instance). */
+const offChecked = new Map<string, number>();
+const RECHECK_MS = 24 * 3_600_000;
+
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const codes = barcodeVariants(code);
   const db = await readDb();
+  let userRow: CatalogRow | null = null;
   if (db) {
-    const { data: known } = await db.from('food_catalog').select(COLS).in('barcode', codes).limit(1).maybeSingle();
-    if (known) return { found: true, food: foodFromRow(known as CatalogRow) };
+    const { data: known } = await db.from('food_catalog').select(COLS).in('barcode', codes).limit(1).maybeSingle<CatalogRow>();
+    if (known && known.source !== 'user') return { found: true, food: foodFromRow(known) };
+    userRow = known ?? null;
+  }
+  // Added by a user from the label: fine to use, but the real label data wins when
+  // Open Food Facts has it (so nobody can "claim" a barcode with wrong numbers).
+  if (userRow) {
+    const last = offChecked.get(userRow.barcode ?? code);
+    if (last && Date.now() - last < RECHECK_MS) return { found: true, food: foodFromRow(userRow) };
+    try {
+      for (const c of codes) {
+        const product = await fetchOffProduct(c, { 'User-Agent': UA }, 3000);
+        if (!product) continue;
+        const result = foodFromOff(c, product);
+        if (!result.found) break;
+        const writer = adminDb();
+        if (writer) {
+          await writer.from('food_catalog').delete().eq('id', userRow.id);
+          await saveFoods([result.food], c);
+        }
+        return result;
+      }
+    } catch {
+      /* Open Food Facts slow or down: the user's entry will do */
+    }
+    offChecked.set(userRow.barcode ?? code, Date.now());
+    if (offChecked.size > 2000) offChecked.delete(offChecked.keys().next().value!);
+    return { found: true, food: foodFromRow(userRow) };
   }
   for (const c of codes) {
     const product = await fetchOffProduct(c, { 'User-Agent': UA });
@@ -265,7 +296,7 @@ const MISS_DAYS = 14;
  * the internet for it. Found → saved to the shared list, so it's instant for
  * everyone after. Not found → remembered for a while (each search costs money).
  */
-export async function lookupBarcodeOnWeb(code: string): Promise<BarcodeResult> {
+export async function lookupBarcodeOnWeb(code: string, userId: string): Promise<BarcodeResult> {
   if (!validGtin(code) || !webLookupReady()) return { found: false };
   const codes = barcodeVariants(code);
   const db = adminDb();
@@ -277,6 +308,10 @@ export async function lookupBarcodeOnWeb(code: string): Promise<BarcodeResult> {
     if (known) return { found: true, food: foodFromRow(known as CatalogRow) };
     if (miss && Date.now() - Date.parse(miss.checked_at) < MISS_DAYS * 86_400_000) return { found: false, name: miss.name ?? undefined };
   }
+  // Quiet limits (each search costs money): far above what a person scans, they only stop scripts.
+  // Over the limit → the normal "add from the label" form.
+  if (!(await withinLimit(`web:${userId}`, LIMITS.webLookupsPerUser, true))) return { found: false };
+  if (!(await withinLimit('web:all', LIMITS.webLookupsTotal, true))) return { found: false };
   const product = await searchBarcodeOnWeb(code);
   const result: BarcodeResult = product ? foodFromWeb(code, product) : { found: false };
   if (result.found) await saveFoods([result.food], code);
