@@ -29,6 +29,7 @@ export const LANDING_PAGES = [
   { path: '/gym-workout-tracker-hindi', label: 'Gym diary app (Hindi)', group: 'gym' },
   { path: '/strength-training-for-women', label: 'Strength training for women', group: 'gym' },
   { path: '/offline-workout-tracker', label: 'Offline workout app', group: 'gym' },
+  { path: '/one-rep-max-calculator', label: '1 rep max calculator', group: 'gym' },
 
   { path: '/running-tracker-app', label: 'Running tracker app', group: 'running' },
   { path: '/couch-to-5k-plan', label: 'Couch to 5K plan', group: 'running' },
@@ -54,6 +55,7 @@ export const LANDING_PAGES = [
 
   { path: '/calorie-counter-app', label: 'Calorie counter app', group: 'food' },
   { path: '/calorie-calculator', label: 'Calorie calculator', group: 'food' },
+  { path: '/protein-calculator', label: 'Protein calculator', group: 'food' },
   { path: '/calories', label: 'Indian food calorie chart', group: 'food' },
 ] as const satisfies readonly { path: string; label: string; group: PageGroup }[];
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Loader2, Pencil, Plus, RotateCcw, Share2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -12,6 +12,7 @@ import { Item, ItemContent, ItemGroup } from '@/components/ui/item';
 import { Textarea } from '@/components/ui/textarea';
 import { actions, exerciseMap, getState, toWorkoutExercise, useAppState } from '@/lib/store';
 import { downloadWorkoutPdf } from '@/lib/exportPdf';
+import { cardForWorkout, shareCard } from '@/lib/shareCard';
 import type { Exercise, Workout } from '@/lib/types';
 import {
   cn,
@@ -240,7 +241,18 @@ export function WorkoutDetail({
   const [draft, setDraft] = useState<Workout | null>(null);
   const [picking, setPicking] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const name = (id: string) => exMap.get(id)?.name ?? 'Deleted exercise';
+  const share = async () => {
+    setSharing(true);
+    try {
+      await shareCard(cardForWorkout(workout, [], name), 'repup-workout.png');
+    } catch {
+      toast.error('Couldn’t make the picture. Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const exportPdf = async () => {
     setExporting(true);
@@ -351,9 +363,14 @@ export function WorkoutDetail({
             >
               <Trash2 /> Delete
             </Button>
-            <Button variant="outline" className="h-10 basis-full" disabled={exporting} onClick={exportPdf}>
-              {exporting ? <Loader2 className="animate-spin" /> : <Download />} Download PDF
-            </Button>
+            <div className="flex basis-full gap-2">
+              <Button variant="outline" className="h-10 flex-1" disabled={exporting} onClick={exportPdf}>
+                {exporting ? <Loader2 className="animate-spin" /> : <Download />} PDF
+              </Button>
+              <Button variant="outline" className="h-10 flex-1" disabled={sharing} onClick={() => void share()}>
+                {sharing ? <Loader2 className="animate-spin" /> : <Share2 />} Share
+              </Button>
+            </div>
           </div>
         )
       }

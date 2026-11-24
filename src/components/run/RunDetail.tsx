@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Loader2, Trash2 } from 'lucide-react';
+import { Download, Loader2, Share2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { downloadRunPdf } from '@/lib/exportPdf';
 import { formatDuration, formatKm, formatPace, paceSecPerKm, weatherLabel } from '@/lib/run/core';
+import { cardForRun, shareCard } from '@/lib/shareCard';
 import { actions } from '@/lib/store';
 import type { RunEntry } from '@/lib/types';
 import { cn, formatDate } from '@/lib/utils';
@@ -20,6 +21,17 @@ import { kindLabel } from './RunParts';
 export function RunDetail({ run, onClose, justSaved = false }: { run: RunEntry; onClose: () => void; justSaved?: boolean }) {
   const [note, setNote] = useState(run.note ?? '');
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const share = async () => {
+    setSharing(true);
+    try {
+      await shareCard(cardForRun(run), `repup-${run.kind}.png`);
+    } catch {
+      toast.error('Couldn’t make the picture. Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
   const exportPdf = async () => {
     setExporting(true);
     try {
@@ -64,11 +76,14 @@ export function RunDetail({ run, onClose, justSaved = false }: { run: RunEntry; 
       }}
       footer={
         <div className="flex gap-2">
-          <Button variant="ghost" className="h-10 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={remove}>
-            <Trash2 /> Delete
+          <Button variant="ghost" size="icon" className="size-10 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={remove} aria-label="Delete">
+            <Trash2 />
           </Button>
           <Button variant="outline" className="h-10" disabled={exporting} onClick={exportPdf} aria-label="Download PDF">
             {exporting ? <Loader2 className="animate-spin" /> : <Download />} PDF
+          </Button>
+          <Button variant="outline" className="h-10" disabled={sharing} onClick={() => void share()}>
+            {sharing ? <Loader2 className="animate-spin" /> : <Share2 />} Share
           </Button>
           <Button
             className="h-10 flex-1"

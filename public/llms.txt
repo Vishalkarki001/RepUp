@@ -30,6 +30,7 @@ Key facts:
 - [Gym diary app (Hindi)](https://getrepup.vercel.app/gym-workout-tracker-hindi)
 - [Strength training for women](https://getrepup.vercel.app/strength-training-for-women)
 - [Offline workout app](https://getrepup.vercel.app/offline-workout-tracker)
+- [1 rep max calculator](https://getrepup.vercel.app/one-rep-max-calculator)
 
 ## Running guides
 - [Running tracker app](https://getrepup.vercel.app/running-tracker-app)
@@ -54,6 +55,12 @@ Key facts:
 - [Weekly fitness planner](https://getrepup.vercel.app/weekly-fitness-planner)
 - [Cardio tracker](https://getrepup.vercel.app/cardio-tracker-app)
 - [Home workout + walking](https://getrepup.vercel.app/home-workout-and-walking-plan)
+
+## Food & calories guides
+- [Calorie counter app](https://getrepup.vercel.app/calorie-counter-app)
+- [Calorie calculator](https://getrepup.vercel.app/calorie-calculator)
+- [Protein calculator](https://getrepup.vercel.app/protein-calculator)
+- [Indian food calorie chart](https://getrepup.vercel.app/calories)
 
 ## Legal
 - [Privacy policy](https://getrepup.vercel.app/privacy)

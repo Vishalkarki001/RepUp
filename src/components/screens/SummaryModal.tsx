@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Check, CloudAlert, CloudCheck, CloudOff, Loader2 } from 'lucide-react';
+import { Check, CloudAlert, CloudCheck, CloudOff, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item';
 import { useAccount } from '@/lib/account';
+import { cardForWorkout, shareCard } from '@/lib/shareCard';
 import { actions, exerciseMap, useAppState } from '@/lib/store';
 import { useSyncStatus } from '@/lib/sync';
 import { WEEKDAYS_LONG, type DayPlan, type WorkoutSummary } from '@/lib/types';
@@ -16,15 +17,31 @@ export function SummaryModal({ summary, onClose }: { summary: WorkoutSummary; on
   const s = useAppState();
   const exMap = useMemo(() => exerciseMap(s), [s]);
   const { workout, prs, planUpdate } = summary;
+  const [sharing, setSharing] = useState(false);
+  const share = async () => {
+    setSharing(true);
+    try {
+      await shareCard(cardForWorkout(workout, prs, (id) => exMap.get(id)?.name ?? 'Exercise'), 'repup-workout.png');
+    } catch {
+      toast.error('Couldn’t make the picture. Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <Modal
       title="Workout complete 💪"
       onClose={onClose}
       footer={
-        <Button size="lg" className="h-11 w-full text-base" onClick={onClose}>
-          Done
-        </Button>
+        <div className="flex gap-2">
+          <Button size="lg" variant="outline" className="h-11 text-base" disabled={sharing} onClick={() => void share()}>
+            {sharing ? <Loader2 className="animate-spin" /> : <Share2 />} Share
+          </Button>
+          <Button size="lg" className="h-11 flex-1 text-base" onClick={onClose}>
+            Done
+          </Button>
+        </div>
       }
     >
       <h3 className="truncate text-center text-lg font-semibold tracking-tight">{workout.name}</h3>
