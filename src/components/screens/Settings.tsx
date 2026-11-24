@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, ChevronRight, Loader2, LogOut, Pencil, RefreshCw, Trash2, UserX } from 'lucide-react';
+import { Bell, ChevronRight, Loader2, LogOut, MessageSquareText, Pencil, RefreshCw, Trash2, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
@@ -13,6 +13,7 @@ import { logOutWithCheck } from '../account-actions';
 import { confirmDialog } from '../Confirm';
 import { Modal } from '../Modal';
 import { ProfileModal } from '../ProfileModal';
+import { FeedbackSheet } from '../FeedbackSheet';
 import { RemindersSheet } from '../RemindersSheet';
 import { UserAvatar } from '../UserAvatar';
 
@@ -28,6 +29,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { pref } = useTheme();
   const account = useAccount();
   const [reminders, setReminders] = useState(false);
+  const [feedback, setFeedback] = useState(false);
 
   return (
     <Modal title="Settings" onClose={onClose}>
@@ -42,7 +44,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <ChevronRight className="text-muted-foreground" />
         </Button>
       )}
+      {account && (
+        <Button variant="outline" className="h-12 justify-start gap-3 text-left" onClick={() => setFeedback(true)}>
+          <MessageSquareText className="text-brand" />
+          <span className="flex-1">
+            <span className="block text-sm font-medium">Send feedback</span>
+            <span className="block text-xs font-normal text-muted-foreground">A problem or an idea? Tell us</span>
+          </span>
+          <ChevronRight className="text-muted-foreground" />
+        </Button>
+      )}
       {reminders && <RemindersSheet onClose={() => setReminders(false)} />}
+      {feedback && <FeedbackSheet onClose={() => setFeedback(false)} />}
       <FieldGroup className="gap-6">
         <FieldSet className="gap-2">
           <FieldLegend variant="label" className="mb-0">

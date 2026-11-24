@@ -139,6 +139,18 @@ export interface AdminSharedExercise {
   users: number;
 }
 
+export interface AdminFeedback {
+  id: string;
+  kind: 'bug' | 'idea' | 'other';
+  message: string;
+  meta: { mode?: string; page?: string; screen?: string; browser?: string; installed?: boolean; online?: boolean };
+  status: 'new' | 'done';
+  created_at: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+}
+
 export interface AdminFood {
   id: string;
   source: 'usda' | 'off' | 'web' | 'user';
@@ -223,6 +235,8 @@ export const adminApi = {
   sharedExercises: (search?: string) => call<AdminSharedExercise[]>('admin_exercises', { p_search: search?.trim() || null, p_limit: 300 }),
   deleteSharedExercise: (id: string) => call<null>('admin_delete_exercise', { p_id: id }),
   deleteFood: (id: string) => call<null>('admin_delete_food', { p_id: id }),
+  feedback: (status: AdminFeedback['status'] | null) => call<AdminFeedback[]>('admin_feedback', { p_status: status, p_limit: 300 }),
+  setFeedbackStatus: (id: string, status: AdminFeedback['status']) => call<null>('admin_set_feedback', { p_id: id, p_status: status }),
   setRole: (user: string, role: 'user' | 'admin') => call<null>('admin_set_role', { p_user: user, p_role: role }),
   setBlocked: (user: string, blocked: boolean) => call<null>('admin_set_blocked', { p_user: user, p_blocked: blocked }),
   setName: (user: string, name: string) => call<null>('admin_set_name', { p_user: user, p_name: name }),

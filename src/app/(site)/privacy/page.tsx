@@ -17,7 +17,7 @@ export default function PrivacyPage() {
     <LegalPage
       path={PATH}
       title="Privacy policy"
-      updated="16 November 2026"
+      updated="24 November 2026"
       intro={
         <p>
           RepUp is a free gym workout tracker. We keep only what the app needs to work: your login and your workouts. We do not
@@ -51,6 +51,11 @@ export default function PrivacyPage() {
             <b>Reminders (only if you turn them on):</b> which reminders you chose and their times, your time zone, and an address
             from your browser’s notification service (Google, Apple or Mozilla) so we can send them. Turning reminders off or logging
             out removes it from that device.
+          </li>
+          <li>
+            <b>Feedback (only if you send it):</b> your message, and to help fix problems: which mode and screen you were on, your
+            screen size, your browser and phone type, and whether RepUp is installed. It’s linked to your account so we can reply by
+            email.
           </li>
           <li>
             <b>Basic account activity:</b> when you signed up, last signed in and last opened the app.
@@ -88,7 +93,7 @@ export default function PrivacyPage() {
             <b>RepUp admins</b> (the small team that runs RepUp) can see your account details (name, email, photo, sign-up and
             last-active dates), your logged workouts (exercises, sets, weights, reps and notes), your runs (distance, time, pace,
             steps, calories, weather and notes, but not your route map) and your food diary (foods, amounts, calories, water and your
-            daily target). We use this only to run and
+            daily target), and the feedback you send. We use this only to run and
             improve RepUp, help you when you ask, and stop misuse. Admins can also block or delete an account that breaks our{' '}
             <a href="/terms">terms</a>. Every admin action is recorded.
           </li>

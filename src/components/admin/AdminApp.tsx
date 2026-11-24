@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Dumbbell, Footprints, LayoutDashboard, ListChecks, Users, Utensils } from 'lucide-react';
+import { ArrowLeft, BookOpen, Dumbbell, Footprints, LayoutDashboard, ListChecks, MessageSquareText, Users, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -29,12 +29,13 @@ import { adminApi } from './api';
 import { AdminDashboard } from './Dashboard';
 import { AdminFoodDiary } from './FoodDiary';
 import { AdminFoods } from './Foods';
+import { AdminFeedbackList } from './Feedback';
 import { AdminSharedExercises } from './SharedExercises';
 import { AdminUsers } from './Users';
 import { AdminRuns } from './Runs';
 import { AdminWorkouts } from './Workouts';
 
-export type Section = 'dashboard' | 'users' | 'workouts' | 'runs' | 'food' | 'foods' | 'exercises';
+export type Section = 'dashboard' | 'users' | 'workouts' | 'runs' | 'food' | 'foods' | 'exercises' | 'feedback';
 
 const NAV: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,6 +45,7 @@ const NAV: { id: Section; label: string; icon: typeof Users }[] = [
   { id: 'food', label: 'Food', icon: Utensils },
   { id: 'foods', label: 'Food list', icon: BookOpen },
   { id: 'exercises', label: 'Exercise list', icon: ListChecks },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquareText },
 ];
 
 const TITLES: Record<Section, string> = {
@@ -54,11 +56,12 @@ const TITLES: Record<Section, string> = {
   food: 'Food diaries',
   foods: 'Shared food list',
   exercises: 'Shared exercise list',
+  feedback: 'Feedback',
 };
 
 function sectionFromHash(): Section {
   const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
-  return h === 'users' || h === 'workouts' || h === 'runs' || h === 'food' || h === 'foods' || h === 'exercises' ? h : 'dashboard';
+  return h === 'users' || h === 'workouts' || h === 'runs' || h === 'food' || h === 'foods' || h === 'exercises' || h === 'feedback' ? h : 'dashboard';
 }
 
 /**
@@ -239,6 +242,7 @@ function AdminShell() {
           {section === 'food' && <AdminFoodDiary user={foodFor} onClearUser={() => setFoodFor(null)} />}
           {section === 'foods' && <AdminFoods />}
           {section === 'exercises' && <AdminSharedExercises />}
+          {section === 'feedback' && <AdminFeedbackList />}
         </div>
       </SidebarInset>
     </>
