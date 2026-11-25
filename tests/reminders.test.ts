@@ -17,7 +17,9 @@ describe('settings', () => {
     assert.deepEqual(p.workout, { on: true, time: '07:15', days: [1, 5] });
     assert.deepEqual(p.weight, { on: true, time: '09:00', day: 6 });
     assert.equal(anyOn(p), true);
-    assert.equal(anyOn(DEFAULT_PREFS), false);
+    // The Sunday report is on unless someone turns it off.
+    assert.equal(anyOn(DEFAULT_PREFS), true);
+    assert.equal(anyOn(cleanPrefs({ weekly: { on: false } })), false);
   });
 });
 
@@ -69,5 +71,25 @@ describe('the notifications', () => {
       const m = reminderMessage(k);
       assert.ok(m.title.length <= 40 && m.body.length <= 120 && m.url.startsWith('/'), k);
     }
+  });
+});
+
+describe('weekly report', () => {
+  // Sunday 22 Nov 2026 in India
+  const SUN = (h: number, m: number) => new Date(Date.UTC(2026, 10, 22, h, m) - 330 * 60000);
+  const due = (at: Date, p = DEFAULT_PREFS, sent: string[] = []) => dueReminders(p, localNow(at, 'Asia/Kolkata'), new Set(sent)).map((d) => d.key);
+  test('on by default, Sunday 7 pm only, once', () => {
+    assert.equal(cleanPrefs({}).weekly.on, true);
+    assert.deepEqual(due(SUN(19, 5)), ['weekly']);
+    assert.deepEqual(due(SUN(18, 55)), []);
+    assert.deepEqual(due(SUN(19, 5), DEFAULT_PREFS, ['weekly']), []);
+    assert.deepEqual(due(AT(19, 5)), []); // a Monday
+  });
+  test('turned off → never', () => assert.deepEqual(due(SUN(19, 5), cleanPrefs({ weekly: { on: false } })), []));
+  test('the words', () => {
+    const m = reminderMessage('weekly', { weekLine: '4 gym days · 12.4 km in 3 runs' });
+    assert.equal(m.title, 'Your week 💪');
+    assert.equal(m.body, '4 gym days · 12.4 km in 3 runs. Tap to see it all.');
+    assert.equal(m.url, '/?open=week');
   });
 });

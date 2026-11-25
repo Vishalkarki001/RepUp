@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { CircleQuestionMark, Download, Moon, Settings, Sun } from 'lucide-react';
+import { BotMessageSquare, CircleQuestionMark, Download, Moon, Settings, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useAccount } from '@/lib/account';
@@ -9,6 +9,7 @@ import { promptInstall, useInstall } from '@/lib/install';
 import { useAppState } from '@/lib/store';
 import { setThemePref, useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { CoachSheet } from './CoachSheet';
 import { HelpGuide } from './HelpGuide';
 import { AccountMenu } from './NavUser';
 import { UserAvatar } from './UserAvatar';
@@ -24,6 +25,7 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
   const { theme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
   const account = useAccount();
   const { canPrompt } = useInstall();
   const { onboarded } = useAppState();
@@ -62,6 +64,11 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
           <Download /> Install
         </Button>
       )}
+      {account && (
+        <Button variant="ghost" size="icon" className="text-brand" onClick={() => setCoachOpen(true)} aria-label="Ask Coach" title="Ask Coach">
+          <BotMessageSquare />
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"
@@ -94,6 +101,7 @@ export function ScreenHeader({ eyebrow, title, children }: { eyebrow?: ReactNode
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {helpOpen && <HelpGuide onClose={() => setHelpOpen(false)} />}
+      {coachOpen && <CoachSheet onClose={() => setCoachOpen(false)} />}
     </header>
   );
 }

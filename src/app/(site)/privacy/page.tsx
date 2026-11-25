@@ -17,7 +17,7 @@ export default function PrivacyPage() {
     <LegalPage
       path={PATH}
       title="Privacy policy"
-      updated="24 November 2026"
+      updated="25 November 2026"
       intro={
         <p>
           RepUp is a free gym workout tracker. We keep only what the app needs to work: your login and your workouts. We do not
@@ -56,6 +56,10 @@ export default function PrivacyPage() {
             <b>Feedback (only if you send it):</b> your message, and to help fix problems: which mode and screen you were on, your
             screen size, your browser and phone type, and whether RepUp is installed. It’s linked to your account so we can reply by
             email.
+          </li>
+          <li>
+            <b>Coach chat (only if you use Ask Coach):</b> your questions and Coach’s answers, kept so you can see the conversation
+            again. You can clear it any time in the chat.
           </li>
           <li>
             <b>Basic account activity:</b> when you signed up, last signed in and last opened the app.
@@ -103,7 +107,8 @@ export default function PrivacyPage() {
             weather when a run starts; it receives your position rounded to about 1 km), OpenStreetMap (map images of your route), USDA
             FoodData Central (receives the food words you search for), Open Food Facts (receives the barcode numbers you scan) and
             Anthropic (when a barcode isn’t known anywhere yet, receives only that barcode number to search the internet for the
-            product). Food searches and barcodes go through RepUp’s server, so these three don’t see who you are (only if our server
+            product, and when you use Ask Coach, receives your question, the recent chat and a short summary of your last 4 weeks of
+            workouts, runs, food and weight so the answer fits you). Food searches and barcodes go through RepUp’s server, so these three don’t see who you are (only if our server
             can’t reach Open Food Facts does your phone ask it directly). They process data only to provide their service to us.
           </li>
         </ul>

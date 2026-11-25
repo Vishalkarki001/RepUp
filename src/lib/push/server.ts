@@ -16,6 +16,9 @@ import {
 } from '../reminders';
 import { CONTACT_EMAIL } from '../site';
 import { adminDb } from '../supabase/admin';
+import type { FoodLog, RunEntry, Workout } from '../types';
+import { mondayOf, weekReport, weekSummaryLine } from '../weekly';
+import { addDays } from '../food/core';
 
 /**
  * Sending reminders (Route Handlers only). The keys are server secrets:
@@ -72,7 +75,7 @@ export async function sendToUser(db: SupabaseClient, userId: string, msg: PushMe
 const BUILT_IN = new Map(DEFAULT_EXERCISES.map((e) => [e.id, e.name]));
 
 /** Is it already done today? And the numbers for the message. */
-async function check(db: SupabaseClient, userId: string, kind: ReminderKind, day: { date: string; weekday: number; startUtc: string }): Promise<{ done: boolean; ctx: ReminderContext }> {
+async function check(db: SupabaseClient, userId: string, kind: ReminderKind, day: { date: string; weekday: number; startUtc: string; tz: string }): Promise<{ done: boolean; ctx: ReminderContext }> {
   switch (kind) {
     case 'workout': {
       const [{ data: done }, { data: plan }] = await Promise.all([
@@ -119,38 +122,131 @@ async function check(db: SupabaseClient, userId: string, kind: ReminderKind, day
       const l = last?.[0] as { distance_m: number; kind: 'run' | 'walk' } | undefined;
       return { done: !!today?.length, ctx: { lastRunKm: l ? Number(l.distance_m) / 1000 : null, runKind: l?.kind } };
     }
+    case 'weekly': {
+      // This week (Monday 00:00 in their time zone → now). Nothing logged → no notification.
+      // (Bests here count against the last 6 months; the app's own report uses all of history.)
+      const start = mondayOf(day.date);
+      const fromUtc = new Date(Date.parse(day.startUtc) - (day.weekday === 0 ? 6 : day.weekday - 1) * 86_400_000).toISOString();
+      const [{ data: w }, { data: r }, { data: f }, { data: g }, { data: bw }] = await Promise.all([
+        // The 6 months before too, so the week's new bests can be found.
+        db.from('workouts').select('id,name,started_at,finished_at,exercises').eq('user_id', userId).eq('deleted', false).gte('started_at', new Date(Date.parse(fromUtc) - 182 * 86_400_000).toISOString()).order('started_at', { ascending: false }).limit(300),
+        db.from('runs').select('id,kind,started_at,finished_at,duration_s,distance_m').eq('user_id', userId).eq('deleted', false).gte('started_at', fromUtc).limit(100),
+        db.from('food_logs').select('date,kcal,protein').eq('user_id', userId).eq('deleted', false).gte('date', start).limit(500),
+        db.from('food_goals').select('kcal,protein').eq('user_id', userId).eq('deleted', false).maybeSingle(),
+        db.from('body_weights').select('date,kg').eq('user_id', userId).eq('deleted', false).gte('date', addDays(start, -60)).order('date', { ascending: false }).limit(30),
+      ]);
+      const workouts = (w ?? []).map((x) => ({
+        id: x.id, name: x.name, exercises: Array.isArray(x.exercises) ? x.exercises : [],
+        startedAt: Date.parse(x.started_at), finishedAt: x.finished_at ? Date.parse(x.finished_at) : undefined,
+      })) as Workout[];
+      const runs = (r ?? []).map((x) => ({
+        id: x.id, kind: x.kind, startedAt: Date.parse(x.started_at), finishedAt: Date.parse(x.finished_at),
+        durationS: Number(x.duration_s), distanceM: Number(x.distance_m), steps: null, calories: 0, source: 'gps',
+      })) as RunEntry[];
+      const foodLogs = (f ?? []).map((x) => ({ date: String(x.date).slice(0, 10), kcal: Number(x.kcal), protein: Number(x.protein) })) as FoodLog[];
+      const report = weekReport(
+        {
+          workouts,
+          runs,
+          foodLogs,
+          foodGoal: g ? { plan: 'custom', kcal: Number(g.kcal), protein: Number(g.protein), carbs: 0, fat: 0 } : null,
+          bodyWeights: (bw ?? []).map((x, i) => ({ id: String(i), date: String(x.date).slice(0, 10), kg: Number(x.kg) })),
+        },
+        start,
+        (ms) => localNow(new Date(ms), day.tz).date,
+      );
+      return { done: report.empty, ctx: { weekLine: weekSummaryLine(report) } };
+    }
   }
 }
 
-/** Every 5 minutes: send what's due, once a day each, skipping what's already done. */
-export async function runReminders(now = new Date()): Promise<{ users: number; sent: number; skipped: number }> {
+/** The database hands out at most 1,000 rows per request: read a long list page by page. */
+const PAGE = 1000;
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
+/** How many people are handled at the same time. */
+const PARALLEL = 20;
+/** Stop starting new people after this long; the next run (5 minutes later) picks up the rest. */
+const TIME_BUDGET_MS = 240_000;
+
+/**
+ * Every 5 minutes: send what's due, once a day each, skipping what's already
+ * done. Each reminder is claimed in reminder_log before it's sent, so two runs
+ * at the same time can never send it twice.
+ */
+export async function runReminders(now = new Date()): Promise<{ users: number; sent: number; skipped: number; failed: number }> {
   const db = adminDb();
   if (!db || !pushReady()) throw new Error('push not configured (SUPABASE_SECRET_KEY / VAPID keys)');
-  const [{ data: prefsRows }, { data: subRows }] = await Promise.all([
-    db.from('reminder_prefs').select('user_id,tz,prefs').limit(5000),
-    db.from('push_subscriptions').select('user_id').limit(20000),
+  const began = Date.now();
+  const [prefsRows, subRows] = await Promise.all([
+    allRows<{ user_id: string; tz: string; prefs: unknown }>((a, b) => db.from('reminder_prefs').select('user_id,tz,prefs').order('user_id').range(a, b)),
+    allRows<{ user_id: string }>((a, b) => db.from('push_subscriptions').select('user_id').order('endpoint').range(a, b)),
   ]);
-  const withDevice = new Set((subRows ?? []).map((r) => r.user_id as string));
+  const withDevice = new Set(subRows.map((r) => r.user_id));
+
+  // Who has something due right now (before looking at what's already gone out today).
+  const people = prefsRows
+    .filter((row) => withDevice.has(row.user_id))
+    .map((row) => ({ row, prefs: cleanPrefs(row.prefs), local: localNow(now, row.tz) }))
+    .filter((p) => anyOn(p.prefs) && dueReminders(p.prefs, p.local, new Set()).length > 0);
+  if (!people.length) return { users: 0, sent: 0, skipped: 0, failed: 0 };
+
+  // Today's log for everyone at once (one or two dates, depending on time zones).
+  const days = [...new Set(people.map((p) => p.local.date))];
+  const logRows = await allRows<{ user_id: string; kind: string; day: string }>((a, b) =>
+    db.from('reminder_log').select('user_id,kind,day').in('day', days).order('user_id').order('kind').order('day').range(a, b),
+  );
+  const logged = new Map<string, Set<string>>();
+  for (const r of logRows) {
+    const key = `${r.user_id}|${String(r.day).slice(0, 10)}`;
+    (logged.get(key) ?? logged.set(key, new Set()).get(key)!).add(r.kind);
+  }
+
   let users = 0;
   let sent = 0;
   let skipped = 0;
-  for (const row of (prefsRows ?? []) as { user_id: string; tz: string; prefs: unknown }[]) {
-    if (!withDevice.has(row.user_id)) continue;
-    const prefs = cleanPrefs(row.prefs);
-    if (!anyOn(prefs)) continue;
-    const local = localNow(now, row.tz);
-    const { data: logRows } = await db.from('reminder_log').select('kind').eq('user_id', row.user_id).eq('day', local.date);
-    const due = dueReminders(prefs, local, new Set((logRows ?? []).map((r) => r.kind as string)));
-    if (!due.length) continue;
+  let failed = 0;
+  const handle = async ({ row, prefs, local }: (typeof people)[number]) => {
+    const due = dueReminders(prefs, local, logged.get(`${row.user_id}|${local.date}`) ?? new Set());
+    if (!due.length) return;
     users++;
-    const day = { date: local.date, weekday: local.weekday, startUtc: localDayStartUtc(now, row.tz).toISOString() };
+    const day = { date: local.date, weekday: local.weekday, startUtc: localDayStartUtc(now, row.tz).toISOString(), tz: row.tz };
     for (const d of due) {
+      // Claim it first: if another run already did, leave it.
+      const { data: claimed, error } = await db
+        .from('reminder_log')
+        .upsert({ user_id: row.user_id, kind: d.key, day: local.date }, { onConflict: 'user_id,kind,day', ignoreDuplicates: true })
+        .select('kind');
+      if (error) throw new Error(error.message);
+      if (!claimed?.length) continue;
       const { done, ctx } = await check(db, row.user_id, d.kind, day);
       if (done) skipped++;
       else sent += await sendToUser(db, row.user_id, reminderMessage(d.kind, ctx));
-      // Logged either way: each reminder is looked at once a day.
-      await db.from('reminder_log').upsert({ user_id: row.user_id, kind: d.key, day: local.date }, { onConflict: 'user_id,kind,day', ignoreDuplicates: true });
     }
-  }
-  return { users, sent, skipped };
+  };
+
+  // A few people at a time; one person's problem doesn't stop everyone else's reminders.
+  let next = 0;
+  const worker = async () => {
+    while (next < people.length && Date.now() - began < TIME_BUDGET_MS) {
+      const p = people[next++];
+      try {
+        await handle(p);
+      } catch (e) {
+        failed++;
+        console.error('reminder failed for one person:', (e as Error).message);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL }, worker));
+  return { users, sent, skipped, failed };
 }

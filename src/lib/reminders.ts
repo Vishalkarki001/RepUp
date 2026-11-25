@@ -4,7 +4,7 @@
  * screen), the server (/api/push/run) and the tests. No React, no browser APIs.
  */
 
-export type ReminderKind = 'workout' | 'lunch' | 'dinner' | 'water' | 'weight' | 'run';
+export type ReminderKind = 'workout' | 'lunch' | 'dinner' | 'water' | 'weight' | 'run' | 'weekly';
 
 export interface ReminderPrefs {
   workout: { on: boolean; time: string; days: number[] };
@@ -14,6 +14,8 @@ export interface ReminderPrefs {
   water: { on: boolean };
   weight: { on: boolean; time: string; day: number };
   run: { on: boolean; time: string; days: number[] };
+  /** Sunday 7 pm: the week in numbers. On unless turned off. */
+  weekly: { on: boolean };
 }
 
 /** 0 = Sunday … 6 = Saturday (same as Date#getDay). */
@@ -24,7 +26,11 @@ export const DEFAULT_PREFS: ReminderPrefs = {
   water: { on: false },
   weight: { on: false, time: '08:00', day: 0 },
   run: { on: false, time: '06:30', days: [2, 4, 6] },
+  weekly: { on: true },
 };
+
+/** When the weekly report goes out (Sunday, the person's own time). */
+export const WEEKLY_TIME = '19:00';
 
 export const WATER_TIMES = ['11:00', '15:00', '19:00'];
 /** A reminder can go out until this long after its time (the job runs every 5 minutes and may be late). */
@@ -50,6 +56,7 @@ export function cleanPrefs(raw: unknown): ReminderPrefs {
     water: { on: on('water') },
     weight: { on: on('weight'), time: time('weight', d.weight.time), day: Number.isInteger(day) && (day as number) >= 0 && (day as number) <= 6 ? (day as number) : d.weight.day },
     run: { on: on('run'), time: time('run', d.run.time), days: days('run', d.run.days) },
+    weekly: { on: r.weekly?.on !== false },
   };
 }
 
@@ -95,6 +102,7 @@ export function dueReminders(p: ReminderPrefs, local: { weekday: number; minutes
   if (p.water.on) WATER_TIMES.forEach((t, i) => inWindow(local.minutes, t) && add(`water-${i + 1}`, 'water'));
   if (p.weight.on && p.weight.day === local.weekday && inWindow(local.minutes, p.weight.time)) add('weight', 'weight');
   if (p.run.on && p.run.days.includes(local.weekday) && inWindow(local.minutes, p.run.time)) add('run', 'run');
+  if (p.weekly.on && local.weekday === 0 && inWindow(local.minutes, WEEKLY_TIME)) add('weekly', 'weekly');
   return out;
 }
 
@@ -120,6 +128,8 @@ export interface ReminderContext {
   glasses?: number;
   lastRunKm?: number | null;
   runKind?: 'run' | 'walk';
+  /** "4 gym days · 12.4 km run · food logged 5 of 7 days". */
+  weekLine?: string;
 }
 
 const list = (names: string[]) => (names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', '));
@@ -167,6 +177,13 @@ export function reminderMessage(kind: ReminderKind, c: ReminderContext = {}): Pu
         body: c.lastRunKm ? `Last time: ${c.lastRunKm.toFixed(2)} km. Go again today?` : 'Lace up and tap Start. Every km counts.',
         tag: 'run',
         url: '/?open=run',
+      };
+    case 'weekly':
+      return {
+        title: 'Your week 💪',
+        body: c.weekLine ? `${c.weekLine}. Tap to see it all.` : 'Tap to see your week in numbers.',
+        tag: 'weekly',
+        url: '/?open=week',
       };
   }
 }

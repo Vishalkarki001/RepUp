@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus, Utensils, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, BotMessageSquare, ChevronsUpDown, Dumbbell, Footprints, LogOut, RefreshCw, Settings, ShieldCheck, UserPen, UserPlus, Utensils, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -23,6 +23,8 @@ import { logOutWithCheck } from './account-actions';
 import { ProfileModal } from './ProfileModal';
 import { RemindersSheet } from './RemindersSheet';
 import { SettingsModal } from './screens/Settings';
+import { CoachSheet } from './CoachSheet';
+import { WeeklyReportSheet } from './WeeklyReport';
 import { UserAvatar } from './UserAvatar';
 
 const MODES: { id: AppMode; label: string; icon: LucideIcon }[] = [
@@ -74,7 +76,7 @@ export function AccountMenu({
 }) {
   const account = useAccount();
   const router = useRouter();
-  const [open, setOpen] = useState<null | 'profile' | 'settings' | 'reminders'>(null);
+  const [open, setOpen] = useState<null | 'profile' | 'settings' | 'reminders' | 'week' | 'coach'>(null);
   const { settings } = useAppState();
   const { track } = useRun();
   if (!account) return null;
@@ -120,6 +122,12 @@ export function AccountMenu({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={() => setOpen('coach')}>
+              <BotMessageSquare /> Ask Coach
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setOpen('week')}>
+              <BarChart3 /> Your week
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setOpen('profile')}>
               <UserPen /> Edit profile
             </DropdownMenuItem>
@@ -146,6 +154,8 @@ export function AccountMenu({
       {open === 'profile' && <ProfileModal onClose={() => setOpen(null)} />}
       {open === 'settings' && <SettingsModal onClose={() => setOpen(null)} />}
       {open === 'reminders' && <RemindersSheet onClose={() => setOpen(null)} />}
+      {open === 'week' && <WeeklyReportSheet onClose={() => setOpen(null)} />}
+      {open === 'coach' && <CoachSheet onClose={() => setOpen(null)} />}
     </>
   );
 }

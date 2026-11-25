@@ -35,6 +35,7 @@ import { HistoryScreen } from './screens/History';
 import { LibraryScreen } from './screens/Library';
 import { Onboarding } from './screens/Onboarding';
 import { ProgressScreen } from './screens/Progress';
+import { WeeklyReportSheet, WeekReadyBar } from './WeeklyReport';
 import { SummaryModal } from './screens/SummaryModal';
 import { TodayScreen } from './screens/Today';
 import { ActiveRun } from './run/ActiveRun';
@@ -137,6 +138,7 @@ function ShellInner() {
   const pendingTab = useRef<Tab | null>(null);
   /** Open "Add food" for this meal on the diary (from a "log lunch" reminder). */
   const [startMeal, setStartMeal] = useState<Meal | null>(null);
+  const [weekOpen, setWeekOpen] = useState(false);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [savedRun, setSavedRun] = useState<RunEntry | null>(null);
   const { state } = useSidebar();
@@ -157,6 +159,11 @@ function ShellInner() {
       const open = q.get('open');
       if (!open) return;
       const meal = q.get('meal');
+      if (open === 'week') {
+        window.history.replaceState(null, '', '/');
+        setWeekOpen(true);
+        return;
+      }
       const target: { mode: AppMode; tab: Tab } | null =
         open === 'workout'
           ? { mode: 'workout', tab: 'today' }
@@ -299,6 +306,7 @@ function ShellInner() {
         {running && track && !showRun && (
           <ResumeBar name={track.kind === 'walk' ? 'Walk' : 'Run'} hint={track.status === 'paused' ? 'Paused' : 'In progress'} onClick={() => setTab('run')} />
         )}
+        {!showWorkout && !showRun && !(mode === 'workout' && active) && !(running && track) && <WeekReadyBar onOpen={() => setWeekOpen(true)} />}
       </div>
 
       {/* Mobile tab bar */}
@@ -326,6 +334,7 @@ function ShellInner() {
 
       {summary && <SummaryModal summary={summary} onClose={() => setSummary(null)} />}
       {savedRun && <RunDetail run={savedRun} justSaved onClose={() => setSavedRun(null)} />}
+      {weekOpen && <WeeklyReportSheet onClose={() => setWeekOpen(false)} />}
       {!onboarded && <Onboarding />}
     </>
   );

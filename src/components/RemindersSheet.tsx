@@ -113,7 +113,7 @@ export function RemindersSheet({ onClose }: { onClose: () => void }) {
       {!blocked && prefs && anyOn(prefs) && !here && (
         <div className="flex items-center gap-3 rounded-lg bg-accent/60 px-3 py-2.5 text-sm text-accent-foreground">
           <BellRing className="size-4 shrink-0" />
-          <span className="flex-1">Your reminders are on, but not on this device.</span>
+          <span className="flex-1">Turn on notifications on this phone to get your reminders and Sunday report.</span>
           <Button size="sm" disabled={busy} onClick={() => void turnOn((p) => p)}>
             Turn on here
           </Button>
@@ -126,6 +126,10 @@ export function RemindersSheet({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <div className={cn('flex flex-col gap-5', (blocked || busy) && 'pointer-events-none opacity-60')}>
+          <Group title="Weekly report">
+            <Row emoji="📊" title="Your week" hint="Sunday 7 pm: gym, runs, food and weight in numbers" on={prefs.weekly.on} onChange={(on) => set('weekly', { on })} />
+          </Group>
+
           <Group title="Gym">
             <Row emoji="💪" title="Workout days" hint="Today’s plan, if you haven’t trained yet" on={prefs.workout.on} onChange={(on) => set('workout', { on })}>
               <TimeBox value={prefs.workout.time} onChange={(time) => set('workout', { time })} />

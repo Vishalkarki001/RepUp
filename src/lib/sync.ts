@@ -509,12 +509,39 @@ function queue(job: () => Promise<void>): Promise<void> {
   return running;
 }
 
+/** The server hands out at most 1,000 rows per request, so a long history comes in pages. */
+const PAGE = 1000;
+/** Each table's own key column, for a stable page order. */
+const ORDER: Record<Table, string> = {
+  user_settings: 'user_id',
+  exercises: 'id',
+  plans: 'day',
+  workouts: 'id',
+  body_weights: 'id',
+  runs: 'id',
+  food_logs: 'id',
+  food_goals: 'user_id',
+  water_days: 'date',
+};
+
+/** Every row of one table for this person, page by page. */
+async function pullTable(db: ReturnType<typeof supabase>, t: Table, user: string): Promise<{ data: Row[]; error: { message: string; code?: string } | null }> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const r = await db.from(t).select('*').eq('user_id', user).order(ORDER[t]).range(from, from + PAGE - 1);
+    if (r.error) return { data: rows, error: r.error };
+    const page = (r.data ?? []) as Row[];
+    rows.push(...page);
+    if (page.length < PAGE) return { data: rows, error: null };
+  }
+}
+
 async function pullNow(): Promise<void> {
   if (!uid) return;
   if (isOffline()) return setStatus({ state: 'offline' });
   setStatus({ state: 'syncing' });
   const db = supabase();
-  const raw = await Promise.all(TABLES.map((t) => db.from(t).select('*')));
+  const raw = await Promise.all(TABLES.map((t) => pullTable(db, t, uid!)));
   const results = raw.map((r, i) => {
     const t = TABLES[i];
     if (r.error && OPTIONAL.includes(t) && isMissingTable(r.error)) {

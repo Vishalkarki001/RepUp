@@ -1,5 +1,9 @@
 import { timingSafeEqual } from 'node:crypto';
+import { after } from 'next/server';
 import { runReminders } from '@/lib/push/server';
+
+/** Many people at once on Sunday evening: allow up to 5 minutes (the job itself stops starting new people after 4). */
+export const maxDuration = 300;
 
 /**
  * POST /api/push/run: send the reminders that are due. Called every 5 minutes
@@ -18,10 +22,14 @@ function allowed(request: Request): boolean {
 
 export async function POST(request: Request) {
   if (!allowed(request)) return Response.json({ error: 'not allowed' }, { status: 401 });
-  try {
-    return Response.json(await runReminders(), { headers: { 'Cache-Control': 'no-store' } });
-  } catch (e) {
-    console.error('reminders run failed:', (e as Error).message);
-    return Response.json({ error: 'failed' }, { status: 500 });
-  }
+  // Answer the cron job straight away (it only waits 20 seconds) and do the sending after.
+  after(async () => {
+    try {
+      const r = await runReminders();
+      if (r.users) console.log('reminders:', JSON.stringify(r));
+    } catch (e) {
+      console.error('reminders run failed:', (e as Error).message);
+    }
+  });
+  return Response.json({ started: true }, { status: 202, headers: { 'Cache-Control': 'no-store' } });
 }
